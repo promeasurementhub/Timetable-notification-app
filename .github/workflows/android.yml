@@ -42,37 +42,62 @@ jobs:
 
       - name: Capacitor Sync
         run: |
-          # บังคับสร้าง Platform ใหม่หากจำเป็น
+          # 1. บังคับสร้าง Platform ใหม่หากจำเป็น
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           
-          # 1. ปรับปรุง variables.gradle (หัวใจหลักของ Capacitor Android)
+          # 2. ปรับปรุง variables.gradle (หัวใจหลักของ Capacitor Android)
           if [ -f "android/variables.gradle" ]; then
             sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' android/variables.gradle
             sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' android/variables.gradle
             sed -i 's/minSdkVersion = .*/minSdkVersion = 22/' android/variables.gradle
-            # เพิ่มการบังคับเวอร์ชัน Gradle Plugin ถ้าจำเป็น (บางไลบรารีต้องการสูงกว่า 8.x)
             echo "SUCCESS: Variables.gradle patched to SDK 35"
           fi
           
-          # 2. ปรับปรุง build.gradle ของ App แบบเจาะจง
+          # 3. เทคนิคขั้นสูง: บังคับ SDK 35 ในทุก Sub-projects (ปลั๊กอินทั้งหมด)
+          # เราจะแทรกคำสั่ง force ไปที่ root build.gradle เพื่อให้ทุก plugins ต้องทำตาม
+          ROOT_GRADLE="android/build.gradle"
+          if [ -f "$ROOT_GRADLE" ]; then
+            if ! grep -q "subprojects" "$ROOT_GRADLE"; then
+              cat >> "$ROOT_GRADLE" <<EOF
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                if (namespace == null) {
+                    namespace project.group
+                }
+                compileSdk 35
+                defaultConfig {
+                    targetSdk 35
+                }
+            }
+        }
+    }
+}
+EOF
+              echo "SUCCESS: Root build.gradle patched with subprojects force SDK 35"
+            fi
+          fi
+
+          # 4. ปรับปรุง build.gradle ของ App แบบเจาะจง
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/compileSdk .*/compileSdk 35/' android/app/build.gradle
             sed -i 's/targetSdk .*/targetSdk 35/' android/app/build.gradle
             echo "SUCCESS: App build.gradle patched to SDK 35"
           fi
 
-          # 3. ค้นหาและเปลี่ยนแบบครอบคลุม (Deep Scan)
+          # 5. ค้นหาและเปลี่ยนแบบครอบคลุม (Deep Scan)
           grep -rl "compileSdk 34" android | xargs sed -i 's/compileSdk 34/compileSdk 35/g' || true
           grep -rl "targetSdk 34" android | xargs sed -i 's/targetSdk 34/targetSdk 35/g' || true
           grep -rl "compileSdkVersion 34" android | xargs sed -i 's/compileSdkVersion 34/compileSdkVersion 35/g' || true
           grep -rl "targetSdkVersion 34" android | xargs sed -i 's/targetSdkVersion 34/targetSdkVersion 35/g' || true
           
-          # 4. แสดงผลเพื่อการตรวจสอบ (Verification)
-          echo "Checking patched values:"
-          grep -r "compileSdk" android/app/build.gradle || true
-          grep -r "compileSdkVersion" android/variables.gradle || true
+          # 6. แสดงผลเพื่อการตรวจสอบ (Verification)
+          echo "Final Verification of SDK versions:"
+          grep -r "compileSdk" android | grep "35" | head -n 5 || echo "No SDK 35 found?"
 
           npx cap sync android
 
