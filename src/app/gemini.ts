@@ -40,7 +40,7 @@ export class GeminiService {
     try {
       const ai = this.getClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: {
           parts: [
             {
