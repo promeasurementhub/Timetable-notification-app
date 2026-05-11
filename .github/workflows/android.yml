@@ -42,7 +42,28 @@ jobs:
 
       - name: Capacitor Sync
         run: |
-          npx cap add android || echo "Android already added or failed to add"
+          # Ensure android platform exists
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          
+          # Patch project to use Android SDK 35 (Required by WorkManager 2.10.5+)
+          # This is critical because many modern Capacitor plugins depend on SDK 35 libraries
+          if [ -f "android/variables.gradle" ]; then
+            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' android/variables.gradle
+            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' android/variables.gradle
+            sed -i 's/minSdkVersion = .*/minSdkVersion = 22/' android/variables.gradle
+            echo "Successfully patched variables.gradle to SDK 35"
+          fi
+          
+          # Patch app/build.gradle directly to ensure compileSdk is set
+          # Some versions of Capacitor might ignore variables.gradle for certain fields
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's/compileSdk .*/compileSdk 35/' android/app/build.gradle
+            # Also ensure namespace is present if missing (for newer AGP versions)
+            echo "Successfully patched app/build.gradle to SDK 35"
+          fi
+
           npx cap sync android
 
       - name: Set up JDK 21
