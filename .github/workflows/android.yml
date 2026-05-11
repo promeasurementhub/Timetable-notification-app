@@ -32,7 +32,10 @@ jobs:
           npm run build
           # คืนค่า BROWSER_DIR อย่างแม่นยำ
           BROWSER_DIR=$(find dist -name "browser" -type d | head -n 1)
-          if [ -z "$BROWSER_DIR" ]; then BROWSER_DIR="dist/app"; fi
+          if [ -z "$BROWSER_DIR" ]; then 
+            BROWSER_DIR=$(find dist -name "*" -type d -maxdepth 2 | head -n 1)
+            echo "Fallback: Using $BROWSER_DIR as build directory"
+          fi
           
           # ใช้การ copy แทน symlink เพื่อความรัดกุมในการทำงานของ Capacitor
           rm -rf www
@@ -47,46 +50,44 @@ jobs:
             npx cap add android
           fi
           
-          # 2. ปรับปรุง variables.gradle (หัวใจหลักของ Capacitor Android)
+          # 2. ปรับปรุง variables.gradle (หัวใจหลักของ Capacitor Android SDK Version)
           if [ -f "android/variables.gradle" ]; then
             sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' android/variables.gradle
             sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' android/variables.gradle
             sed -i 's/minSdkVersion = .*/minSdkVersion = 22/' android/variables.gradle
-            echo "SUCCESS: Variables.gradle patched to SDK 35"
+            echo "SUCCESS: variables.gradle updated to SDK 35"
           fi
           
           # 3. เทคนิคขั้นสูง: บังคับ SDK 35 ในทุก Sub-projects (ปลั๊กอินทั้งหมด)
-          # เราจะแทรกคำสั่ง force ไปที่ root build.gradle เพื่อให้ทุก plugins ต้องทำตาม
           ROOT_GRADLE="android/build.gradle"
           if [ -f "$ROOT_GRADLE" ]; then
             if ! grep -q "subprojects" "$ROOT_GRADLE"; then
-              cat >> "$ROOT_GRADLE" <<EOF
-
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.android {
-                if (namespace == null) {
-                    namespace project.group
-                }
-                compileSdk 35
-                defaultConfig {
-                    targetSdk 35
-                }
-            }
-        }
-    }
-}
-EOF
-              echo "SUCCESS: Root build.gradle patched with subprojects force SDK 35"
+              echo "
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          if (namespace == null) {
+                              namespace project.group
+                          }
+                          compileSdk 35
+                          defaultConfig {
+                              targetSdk 35
+                          }
+                      }
+                  }
+              }
+          }
+          " >> "$ROOT_GRADLE"
+              echo "SUCCESS: root build.gradle patched with forced forced SDK 35"
             fi
           fi
 
-          # 4. ปรับปรุง build.gradle ของ App แบบเจาะจง
+          # 4. บังคับใช้ใน app/build.gradle
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/compileSdk .*/compileSdk 35/' android/app/build.gradle
             sed -i 's/targetSdk .*/targetSdk 35/' android/app/build.gradle
-            echo "SUCCESS: App build.gradle patched to SDK 35"
+            echo "SUCCESS: app/build.gradle updated to SDK 35"
           fi
 
           # 5. ค้นหาและเปลี่ยนแบบครอบคลุม (Deep Scan)
