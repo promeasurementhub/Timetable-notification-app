@@ -21,10 +21,16 @@ jobs:
         run: npm install
 
       - name: Inject API Key
-        if: ${{ secrets.GEMINI_API_KEY != '' }}
         run: |
-          # Use | as delimiter to avoid issues with slashes in API keys if any
-          sed -i "s|REPLACE_ME_GEMINI_API_KEY|${{ secrets.GEMINI_API_KEY }}|g" src/environments/environment.ts
+          if [ -n "${GEMINI_API_KEY}" ]; then
+            # Inject into environment.ts
+            sed -i "s|REPLACE_ME_GEMINI_API_KEY|${GEMINI_API_KEY}|g" src/environments/environment.ts || true
+            # Inject into angular.json for define replacements
+            sed -i "s|YOUR_GEMINI_API_KEY|${GEMINI_API_KEY}|g" angular.json || true
+            echo "API Key injected successfully."
+          else
+            echo "No API Key found in secrets."
+          fi
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
