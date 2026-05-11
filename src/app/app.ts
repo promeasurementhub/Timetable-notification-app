@@ -194,7 +194,8 @@ export class App implements OnInit {
     try {
       const repo = this.githubRepo();
       const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-      const response = await fetch(url).catch(() => null);
+      console.log('Background checking OTA from:', url);
+      const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
       
       if (response && response.ok) {
         const remote = await response.json();

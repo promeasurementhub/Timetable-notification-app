@@ -23,7 +23,11 @@ jobs:
       - name: Build Angular App
         run: |
           npm run build
-          ls -R dist/app/browser || echo "Dist folder not found!"
+          # ค้นหา Browser folder และสร้าง symlink เป็น www เพื่อความรัดกุม
+          BROWSER_DIR=$(find dist -name "browser" -type d | head -n 1)
+          if [ -z "$BROWSER_DIR" ]; then BROWSER_DIR="dist/app"; fi
+          ln -s "$BROWSER_DIR" www
+          echo "Normalized build output to ./www"
 
       - name: Capacitor Sync
         run: |
