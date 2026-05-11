@@ -235,11 +235,36 @@ export class App implements OnInit {
       
       const remote = await versionResult.json();
 
-      // Start download
-      const update = await CapacitorUpdater.download({
-        url: `https://github.com/${repo}/releases/download/ota-latest/update.zip?t=${Date.now()}`,
-        version: remote.version
-      });
+      // Resolve the actual S3/CDN zip URL bypassing native redirect issues
+      let finalZipUrl = `https://github.com/${repo}/releases/download/ota-latest/update.zip`;
+      try {
+        // We use fetch to GET the redirect URL. This handles cases where Android's native HTTP 
+        // connection drops headers or fails on redirects.
+        const headRes = await fetch(finalZipUrl, { method: 'HEAD', cache: 'no-store' });
+        if (headRes.url && headRes.url !== finalZipUrl) {
+          finalZipUrl = headRes.url;
+          console.log('Resolved direct download URL, stability improved:', finalZipUrl);
+        }
+      } catch (e) {
+        console.warn('Could not resolve direct URL, relying on native redirect', e);
+      }
+
+      // Start actual reliable download via Capacitor Updater native bridge
+      let update;
+      try {
+         update = await CapacitorUpdater.download({
+           url: finalZipUrl,
+           version: remote.version
+         });
+      } catch (downloadErr: any) {
+         // Fallback retry
+         console.warn('First download attempt failed, retrying...', downloadErr);
+         await new Promise(r => setTimeout(r, 1000));
+         update = await CapacitorUpdater.download({
+           url: finalZipUrl,
+           version: remote.version
+         });
+      }
 
       localStorage.setItem('app_version', remote.version);
       this.currentAppHash.set(remote.short_hash || remote.version.substring(0, 7));

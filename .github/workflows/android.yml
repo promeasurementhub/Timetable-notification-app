@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # ให้สิทธิ์เขียนเพื่อสร้าง GitHub Release สำหรับ OTA
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +51,24 @@ jobs:
           mkdir www
           cp -r "$BROWSER_DIR"/. www/
           echo "Sync output to ./www completed"
+
+      - name: Publish OTA Update to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. Zip the assets
+          cd www
+          zip -r ../update.zip * -q
+          cd ..
+          
+          # 2. Create version.json using Unix Timestamp as version
+          TIMESTAMP=$(date +%s)
+          echo "{\"version\": \"$TIMESTAMP\", \"short_hash\": \"${GITHUB_SHA::7}\"}" > version.json
+          
+          # 3. Create or Update GitHub Release named 'ota-latest'
+          gh release view ota-latest || gh release create ota-latest --title "OTA Update (Latest)" --notes "Auto-generated OTA release for Capacitor Updater"
+          gh release upload ota-latest update.zip version.json --clobber
+          echo "OTA Update artifacts uploaded successfully."
 
       - name: Capacitor Sync
         run: |
