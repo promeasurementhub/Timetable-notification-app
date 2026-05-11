@@ -6,6 +6,7 @@ import { AppStore } from './store';
 import { GeminiService } from './gemini';
 import { NotificationService } from './notification';
 import { ClassSession } from './models';
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,8 +81,41 @@ export class App implements OnInit {
     return list.filter(c => c.dayOfWeek === today).sort((a, b) => a.startTime.localeCompare(b.startTime));
   });
 
-  ngOnInit() {
+  async ngOnInit() {
     this.notification.startChecking();
+    
+    // OTA Update Check
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+      try {
+        await CapacitorUpdater.notifyAppReady();
+        
+        // ค้นหาชื่อ Repo จาก URL ของแอป (กรณีอยู่ใน AI Studio) 
+        // หรือกำหนดเองถ้าทราบชื่อแน่นอน
+        const repo = "khaophan/Timetable-notification-app";
+        
+        // ตรวจสอบเวอร์ชันล่าสุดจาก GitHub Releases
+        // หมายเหตุ: ในแอปจริงควรมีหน้า Loading หรือทำใน Background
+        const response = await fetch(`https://raw.githubusercontent.com/${repo}/main/version.json`).catch(() => null);
+        if (response && response.ok) {
+          const remote = await response.json();
+          const localVersion = localStorage.getItem('app_version');
+          
+          if (remote.version !== localVersion) {
+            console.log('New version found! Downloading...');
+            const update = await CapacitorUpdater.download({
+              url: `https://github.com/${repo}/releases/download/ota-latest/update.zip`,
+              version: remote.version
+            });
+            
+            await CapacitorUpdater.set(update);
+            localStorage.setItem('app_version', remote.version);
+            // แอปจะรีโหลดอัตโนมัติ
+          }
+        }
+      } catch (e) {
+        console.warn('OTA Error:', e);
+      }
+    }
   }
 
   setTab(tab: 'home' | 'schedule' | 'settings') {

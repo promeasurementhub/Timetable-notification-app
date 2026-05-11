@@ -26,6 +26,7 @@
     "@capacitor/android": "^8.3.3",
     "@capacitor/cli": "^8.3.3",
     "@capacitor/core": "^8.3.3",
+    "@capgo/capacitor-updater": "^8.45.11",
     "@google/genai": "^1.27.0",
     "express": "^5.1.0",
     "motion": "^12.23.24",

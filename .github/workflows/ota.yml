@@ -1,0 +1,46 @@
+name: Push Live Update (OTA)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-ota:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Angular App
+        run: npm run build
+
+      - name: Create Update Bundle
+        run: |
+          cd dist/app/browser
+          zip -r ../../../update.zip .
+          cd ../../../
+          echo "{\"version\": \"${{ github.sha }}\", \"url\": \"https://github.com/${{ github.repository }}/releases/download/ota-latest/update.zip\"}" > version.json
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ota-latest
+          files: |
+            update.zip
+            version.json
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
