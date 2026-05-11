@@ -27,9 +27,13 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Inject API Key
+      - name: Inject API Key and Config
         run: |
+          # Inject into environments/environment.ts
           sed -i "s/REPLACE_ME_GEMINI_API_KEY/${{ secrets.GEMINI_API_KEY }}/g" src/environments/environment.ts
+          
+          # Also inject into angular.json as a backup define
+          sed -i "s/YOUR_GEMINI_API_KEY/${{ secrets.GEMINI_API_KEY }}/g" angular.json
         if: env.HAS_SECRET == 'true'
         env:
           HAS_SECRET: ${{ secrets.GEMINI_API_KEY != '' }}
@@ -39,20 +43,23 @@ jobs:
 
       - name: Validate and Package Update
         run: |
-          # ค้นหา Browser folder โดยไม่ยึดติดกับโครงสร้าง
+          # Find Browser folder
           BROWSER_DIR=$(find dist -name "browser" -type d | head -n 1)
           if [ -z "$BROWSER_DIR" ]; then
-            BROWSER_DIR="dist/app" # Fallback
+            BROWSER_DIR="dist/app" 
           fi
           
           echo "Using source directory: $BROWSER_DIR"
           
-          # สร้าง Version Info
+          # Create Version Info with AppId
           VERSION_HASH="${{ github.sha }}"
           SHORT_HASH="${VERSION_HASH:0:7}"
-          echo "{\"version\": \"$VERSION_HASH\", \"short_hash\": \"$SHORT_HASH\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \"url\": \"https://github.com/${{ github.repository }}/releases/download/ota-latest/update.zip\"}" > version.json
+          # Get App ID from capacitor.config.ts
+          APP_ID=$(grep "appId" capacitor.config.ts | sed 's/.*: "\(.*\)".*/\1/')
           
-          # บีบอัดไฟล์
+          echo "{\"version\": \"$VERSION_HASH\", \"short_hash\": \"$SHORT_HASH\", \"appId\": \"$APP_ID\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \"url\": \"https://github.com/${{ github.repository }}/releases/download/ota-latest/update.zip\"}" > version.json
+          
+          # Compress files properly
           cd "$BROWSER_DIR"
           zip -r ../../../update.zip .
           cd ../../../

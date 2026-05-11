@@ -30,11 +30,12 @@ export class App implements OnInit {
   newMappingCode = signal('');
   newMappingName = signal('');
   userGeminiKey = signal('');
+  githubRepo = signal('khaophan/Timetable-notification-app');
   apiKeySource = computed(() => {
     if (environment.GEMINI_API_KEY && environment.GEMINI_API_KEY !== 'REPLACE_ME_GEMINI_API_KEY') {
       return 'Baked-in (GitHub Secret)';
     }
-    const local = localStorage.getItem('user_gemini_key');
+    const local = typeof window !== 'undefined' ? localStorage.getItem('user_gemini_key') : null;
     if (local && local !== 'undefined') return 'Manual Override (LocalStorage)';
     return 'None (AI Studio Preview only)';
   });
@@ -60,6 +61,7 @@ export class App implements OnInit {
 
       this.userGeminiKey.set(localStorage.getItem('user_gemini_key') || '');
       this.currentAppHash.set(localStorage.getItem('app_version')?.substring(0, 7) || 'Unknown');
+      this.githubRepo.set(localStorage.getItem('github_repo') || 'khaophan/Timetable-notification-app');
 
       setInterval(() => {
         this.currentTime.set(new Date());
@@ -85,6 +87,16 @@ export class App implements OnInit {
     const key = this.userGeminiKey().trim();
     localStorage.setItem('user_gemini_key', key);
     alert('บันทึก API Key เรียบร้อยแล้ว ระบบ AI พร้อมทำงาน');
+  }
+
+  saveGithubRepo() {
+    const repo = this.githubRepo().trim();
+    if (!repo.includes('/')) {
+      alert('รูปแบบชื่อ Repository ไม่ถูกต้อง (ต้องเป็น username/repo-name)');
+      return;
+    }
+    localStorage.setItem('github_repo', repo);
+    alert('บันทึกชื่อ Repository เรียบร้อยแล้ว');
   }
 
   removeMapping(code: string) {
@@ -180,7 +192,7 @@ export class App implements OnInit {
     this.updateStatus.set('checking');
     
     try {
-      const repo = "khaophan/Timetable-notification-app";
+      const repo = this.githubRepo();
       const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
       const response = await fetch(url).catch(() => null);
       
@@ -209,22 +221,34 @@ export class App implements OnInit {
     this.updateProgress.set(0);
     
     try {
-      const repo = "khaophan/Timetable-notification-app";
+      // Safety Reset
+      try { await CapacitorUpdater.reset(); } catch(e) {}
+
+      const repo = this.githubRepo();
       const versionUrl = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-      const versionResult = await fetch(versionUrl);
+      const versionResult = await fetch(versionUrl, { cache: 'no-store' });
+      
+      if (!versionResult.ok) {
+        throw new Error(`Server responded with ${versionResult.status}: ${versionResult.statusText}`);
+      }
+      
       const remote = await versionResult.json();
 
+      // Start download
       const update = await CapacitorUpdater.download({
-        url: `https://github.com/${repo}/releases/download/ota-latest/update.zip`,
+        url: `https://github.com/${repo}/releases/download/ota-latest/update.zip?t=${Date.now()}`,
         version: remote.version
       });
 
       localStorage.setItem('app_version', remote.version);
       this.currentAppHash.set(remote.short_hash || remote.version.substring(0, 7));
       
+      // Delay slightly for UI to show 100%
+      await new Promise(r => setTimeout(r, 500));
+      
       await CapacitorUpdater.set(update);
-    } catch (e) {
-      alert('การอัปเดตล้มเหลว กรุณาลองใหม่อีกครั้ง');
+    } catch (e: any) {
+      alert(`การอัปเดตล้มเหลว: ${e.message || 'Unknown Error'}\n\nกรุณาตรวจสอบอินเทอร์เน็ตและชื่อ Repository`);
       this.isUpdating.set(false);
       this.showUpdateModal.set(false);
       this.updateStatus.set('error');
@@ -237,23 +261,27 @@ export class App implements OnInit {
     
     try {
       if (typeof window !== 'undefined' && (window as any).Capacitor) {
-        const repo = "khaophan/Timetable-notification-app";
+        const repo = this.githubRepo();
         const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-        const response = await fetch(url).catch(() => null);
         
-        if (response && response.ok) {
-          const remote = await response.json();
-          const localVersion = localStorage.getItem('app_version');
-          
-          if (remote.version !== localVersion) {
-            this.updateVersion.set(remote.short_hash || remote.version.substring(0, 7));
-            this.showUpdateModal.set(true);
+        try {
+          const response = await fetch(url, { cache: 'no-store' });
+          if (response.ok) {
+            const remote = await response.json();
+            const localVersion = localStorage.getItem('app_version');
+            
+            if (remote.version !== localVersion) {
+              this.updateVersion.set(remote.short_hash || remote.version.substring(0, 7));
+              this.showUpdateModal.set(true);
+            } else {
+              alert('คุณกำลังใช้งานเวอร์ชันล่าสุดแล้ว (' + (remote.short_hash || 'Latest') + ')');
+            }
+            this.updateStatus.set('idle');
           } else {
-            alert('คุณกำลังใช้งานเวอร์ชันล่าสุดแล้ว (' + (remote.short_hash || 'Latest') + ')');
+            throw new Error(`HTTP ${response.status}`);
           }
-          this.updateStatus.set('idle');
-        } else {
-          alert('ไม่สามารถดึงข้อมูลอัปเดตจาก GitHub ได้ (Release อาจยังไม่ถูกสร้าง)');
+        } catch (e: any) {
+          alert(`ไม่สามารถเชื่อมต่อ GitHub ได้ (${e.message})\n\nคำแนะนำ:\n1. ชื่อ Repo ต้องถูกต้อง (username/repo)\n2. สาเหตุส่วนใหญ่คือ GitHub ยังไม่สร้าง Release ให้เสร็จสิ้น (รอ 1-2 นาทีหลัง Push)`);
           this.updateStatus.set('error');
         }
       } else {
@@ -261,7 +289,6 @@ export class App implements OnInit {
         this.updateStatus.set('idle');
       }
     } catch (e) {
-      alert('เกิดข้อผิดพลาดในการตรวจสอบการอัปเดต');
       this.updateStatus.set('error');
     }
   }
