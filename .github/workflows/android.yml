@@ -133,6 +133,9 @@ jobs:
               ]
             },
             plugins: {
+              CapacitorHttp: {
+                enabled: true
+              },
               CapacitorUpdater: {
                 autoUpdate: true,
                 statsUrl: '',

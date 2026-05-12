@@ -7,6 +7,7 @@ import { GeminiService } from './gemini';
 import { NotificationService } from './notification';
 import { ClassSession } from './models';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { CapacitorHttp } from '@capacitor/core';
 import { environment } from '../environments/environment';
 
 @Component({
@@ -195,10 +196,16 @@ export class App implements OnInit {
       const repo = this.githubRepo();
       const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
       console.log('Background checking OTA from:', url);
-      const response = await fetch(url, { cache: 'no-store' }).catch(() => null);
+      const response = await CapacitorHttp.get({ 
+        url, 
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+      }).catch(() => null);
       
-      if (response && response.ok) {
-        const remote = await response.json();
+      if (response && response.status === 200) {
+        let remote = response.data;
+        if (typeof remote === 'string') {
+          try { remote = JSON.parse(remote); } catch(e) {}
+        }
         
         const localVersion = localStorage.getItem('app_version');
         
@@ -229,13 +236,19 @@ export class App implements OnInit {
 
       const repo = this.githubRepo();
       const versionUrl = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-      const versionResult = await fetch(versionUrl, { cache: 'no-store' });
+      const versionResult = await CapacitorHttp.get({ 
+        url: versionUrl,
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      });
       
-      if (!versionResult.ok) {
-        throw new Error(`Server responded with ${versionResult.status}: ${versionResult.statusText}`);
+      if (versionResult.status !== 200) {
+        throw new Error(`Server responded with HTTP ${versionResult.status}`);
       }
       
-      const remote = await versionResult.json();
+      let remote = versionResult.data;
+      if (typeof remote === 'string') {
+        try { remote = JSON.parse(remote); } catch(e) {}
+      }
       const remoteVersion = remote.version;
       const shortHash = remote.short_hash || remote.version.substring(0, 7);
 
@@ -244,11 +257,11 @@ export class App implements OnInit {
       try {
         // We use fetch to GET the redirect URL. This handles cases where Android's native HTTP 
         // connection drops headers or fails on redirects.
-        const headRes = await fetch(finalZipUrl, { method: 'HEAD', cache: 'no-store' });
+        const headRes = await CapacitorHttp.request({ method: 'HEAD', url: finalZipUrl });
         if (headRes.url && headRes.url !== finalZipUrl) {
           finalZipUrl = headRes.url;
-          console.log('Resolved direct download URL, stability improved:', finalZipUrl);
         }
+        console.log('Resolved direct download URL, stability improved:', finalZipUrl);
       } catch (e) {
         console.warn('Could not resolve direct URL, relying on native redirect', e);
       }
@@ -297,9 +310,15 @@ export class App implements OnInit {
         const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
         
         try {
-          const response = await fetch(url, { cache: 'no-store' });
-          if (response.ok) {
-            const remote = await response.json();
+          const response = await CapacitorHttp.get({
+            url: url,
+            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+          });
+          if (response.status === 200) {
+            let remote = response.data;
+            if (typeof remote === 'string') {
+              try { remote = JSON.parse(remote); } catch(e) {}
+            }
             const remoteVersion = remote.version;
             const shortHash = remote.short_hash || remote.version.substring(0, 7);
             
@@ -317,9 +336,8 @@ export class App implements OnInit {
             alert('คุณกำลังใช้งานเวอร์ชันล่าสุดแล้ว\n(ยังไม่พบประวัติการอัปเดตบน GitHub)');
             this.updateStatus.set('idle');
           } else {
-            let bodyText = '';
-            try { bodyText = await response.text(); } catch(err){}
-            throw new Error(`HTTP Error ${response.status} - ${response.statusText}\nResponseBody: ${bodyText.substring(0, 500)}`);
+            let bodyText = JSON.stringify(response.data || '');
+            throw new Error(`HTTP Error ${response.status}\nResponseBody: ${bodyText.substring(0, 500)}`);
           }
         } catch (e: any) {
           const errMsg = e?.message || String(e);
