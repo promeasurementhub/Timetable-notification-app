@@ -193,7 +193,7 @@ jobs:
           MANIFEST="android/app/src/main/AndroidManifest.xml"
 
           if ! grep -q "supportsPictureInPicture" "$MANIFEST"; then
-            sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:supportsPictureInPicture="true"\n            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"/' "$MANIFEST"
+            sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:supportsPictureInPicture="true"/' "$MANIFEST"
             echo "✅ PiP enabled"
           fi
 
