@@ -227,15 +227,26 @@ jobs:
           fi
 
       - name: Sign APK (Release)
-        if: ${{ (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == '') && secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == '') }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "⏩ Skipping APK signing because KEYSTORE_BASE64 is empty"
+            echo "APK_PATH=android/app/build/outputs/apk/release/app-release-unsigned.apk" >> $GITHUB_ENV
+            echo "APK_NAME=app-release-unsigned.apk" >> $GITHUB_ENV
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > keystore.jks
           BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
           $ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner sign \
             --ks keystore.jks \
-            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
-            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
-            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --ks-pass pass:$KEYSTORE_PASSWORD \
+            --ks-key-alias $KEY_ALIAS \
+            --key-pass pass:$KEY_PASSWORD \
             --out app-release-signed.apk \
             android/app/build/outputs/apk/release/app-release-unsigned.apk
           rm -f keystore.jks
