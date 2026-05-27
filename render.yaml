@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: schedule-alert-app
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run serve:ssr:app
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: GEMINI_API_KEY
+        sync: false

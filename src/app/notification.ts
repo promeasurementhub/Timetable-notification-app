@@ -16,16 +16,14 @@ export class NotificationService {
 
   requestPermission() {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      try {
-        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-          const promise = Notification.requestPermission();
-          if (promise) {
-            promise.catch(err => console.warn('Notification permission error:', err));
+      import('./firebase-client').then(({ requestFirebaseNotificationPermission }) => {
+        requestFirebaseNotificationPermission().then(token => {
+          if (token) {
+            console.log('Firebase Push Notifications Enabled');
+            localStorage.setItem('fcm_token_granted', 'true');
           }
-        }
-      } catch (err) {
-        console.warn('Notification API error:', err);
-      }
+        });
+      }).catch(err => console.warn('Failed to load firebase client:', err));
     }
   }
 

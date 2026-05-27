@@ -1,13 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { AppStore } from './store';
 import { GeminiService } from './gemini';
 import { NotificationService } from './notification';
 import { ClassSession } from './models';
-import { CapacitorUpdater } from '@capgo/capacitor-updater';
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { environment } from '../environments/environment';
 
@@ -33,6 +32,20 @@ export class App implements OnInit {
   newMappingName = signal('');
   userGeminiKey = signal('');
   githubRepo = signal('khaophan/Timetable-notification-app');
+  deferredPrompt = signal<any>(null);
+  editingSession = signal<ClassSession | null>(null);
+
+  editForm = new FormGroup({
+    id: new FormControl('', { nonNullable: true }),
+    subjectCode: new FormControl('', { nonNullable: true }),
+    subjectName: new FormControl('', { nonNullable: true }),
+    room: new FormControl('', { nonNullable: true }),
+    teacher: new FormControl('', { nonNullable: true }),
+    startTime: new FormControl('', { nonNullable: true, validators: Validators.pattern(/^([01]\d|2[0-3]):?([0-5]\d)$/) }),
+    endTime: new FormControl('', { nonNullable: true, validators: Validators.pattern(/^([01]\d|2[0-3]):?([0-5]\d)$/) }),
+    dayOfWeek: new FormControl('', { nonNullable: true })
+  });
+
   apiKeySource = computed(() => {
     if (environment.GEMINI_API_KEY && environment.GEMINI_API_KEY !== 'REPLACE_ME_GEMINI_API_KEY') {
       return 'Baked-in (GitHub Secret)';
@@ -42,19 +55,32 @@ export class App implements OnInit {
     return 'None (AI Studio Preview only)';
   });
 
-  // Update System States
-  showUpdateModal = signal(false);
-  updateProgress = signal(0);
-  isUpdating = signal(false);
-  updateVersion = signal('');
-  updateStatus = signal<'idle' | 'checking' | 'downloading' | 'error'>('idle');
-  currentAppHash = signal('Unknown');
-
   constructor() {
     if (typeof window !== 'undefined') {
       setInterval(() => {
         this.currentTime.set(new Date());
       }, 1000);
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent the mini-infobar from appearing on mobile
+        e.preventDefault();
+        // Stash the event so it can be triggered later.
+        this.deferredPrompt.set(e);
+      });
+
+      window.addEventListener('appinstalled', () => {
+        this.deferredPrompt.set(null);
+      });
+    }
+  }
+
+  async installPwa() {
+    const promptEvent = this.deferredPrompt();
+    if (promptEvent) {
+      promptEvent.prompt();
+      const { outcome } = await promptEvent.userChoice;
+      console.log(`User response to the install prompt: ${outcome}`);
+      this.deferredPrompt.set(null);
     }
   }
 
@@ -149,6 +175,36 @@ export class App implements OnInit {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
+  editSessionData(session: ClassSession) {
+    this.editingSession.set(session);
+    this.editForm.setValue({
+      id: session.id,
+      subjectCode: session.subjectCode || '',
+      subjectName: session.subjectName || '',
+      room: session.room || '',
+      teacher: session.teacher || '',
+      startTime: session.startTime || '',
+      endTime: session.endTime || '',
+      dayOfWeek: session.dayOfWeek || ''
+    });
+  }
+
+  cancelEdit() {
+    this.editingSession.set(null);
+  }
+
+  async saveEdit() {
+    if (this.editForm.invalid) {
+      alert('กรุณากรอกเวลาให้ถูกต้อง (HH:MM)');
+      return;
+    }
+    const val = this.editForm.getRawValue();
+    const currentSchedule = this.store.schedule();
+    const updated = currentSchedule.map(s => s.id === val.id ? val : s);
+    this.store.updateSchedule(updated);
+    this.editingSession.set(null);
+  }
+
   // Group schedule by day
   groupedSchedule = computed(() => {
     const list = this.store.schedule();
@@ -172,11 +228,10 @@ export class App implements OnInit {
     this.notification.startChecking();
     
     // Load preferences async
-    const [savedMappings, geminiKey, repo, appVersion] = await Promise.all([
+    const [savedMappings, geminiKey, repo] = await Promise.all([
       this.getPref('subject_mappings'),
       this.getPref('user_gemini_key'),
-      this.getPref('github_repo', 'khaophan/Timetable-notification-app'),
-      this.getPref('app_version', 'Unknown')
+      this.getPref('github_repo', 'khaophan/Timetable-notification-app')
     ]);
 
     if (savedMappings) {
@@ -188,196 +243,6 @@ export class App implements OnInit {
     }
     this.userGeminiKey.set(geminiKey);
     this.githubRepo.set(repo);
-    this.currentAppHash.set(appVersion.substring(0, 7));
-
-    // OTA Update Check
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await CapacitorUpdater.notifyAppReady();
-        
-        // ตรวจสอบเวอร์ชันล่าสุดหลังเปิดแอป 2 วินาที
-        setTimeout(() => this.checkForUpdatesBackground(), 2000);
-        
-        // ตรวจสอบซ้ำทุก 30 นาที
-        setInterval(() => this.checkForUpdatesBackground(), 30 * 60 * 1000);
-
-        // ฟังการดาวน์โหลดเพื่อดึงเปอร์เซ็นต์จริง
-        CapacitorUpdater.addListener('download', (info: any) => {
-          if (info.percent) {
-            this.updateProgress.set(Math.round(info.percent));
-          }
-        });
-      } catch (e) {
-        console.warn('OTA Init Error:', e);
-      }
-    }
-  }
-
-  async checkForUpdatesBackground() {
-    if (this.isUpdating()) return;
-    this.updateStatus.set('checking');
-    
-    try {
-      const repo = this.githubRepo();
-      const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-      console.log('Background checking OTA from:', url);
-      const response = await CapacitorHttp.get({ 
-        url, 
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
-      }).catch(() => null);
-      
-      if (response && response.status === 200) {
-        let remote = response.data;
-        if (typeof remote === 'string') {
-          try { remote = JSON.parse(remote); } catch(e) {}
-        }
-        
-        const localVersion = await this.getPref('app_version');
-        
-        if (remote.version && remote.version !== localVersion) {
-          const shortHash = remote.short_hash || remote.version.substring(0, 7);
-          this.updateVersion.set(shortHash);
-          this.showUpdateModal.set(true);
-        }
-        this.updateStatus.set('idle');
-      } else {
-        this.updateStatus.set('error');
-      }
-    } catch (e) {
-      this.updateStatus.set('error');
-    }
-  }
-
-  async startLiveUpdate() {
-    if (this.isUpdating()) return;
-    
-    this.isUpdating.set(true);
-    this.updateStatus.set('downloading');
-    this.updateProgress.set(0);
-    
-    try {
-      // Safety Reset
-      try { await CapacitorUpdater.reset(); } catch(e) {}
-
-      const repo = this.githubRepo();
-      const versionUrl = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-      const versionResult = await CapacitorHttp.get({ 
-        url: versionUrl,
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-      });
-      
-      if (versionResult.status !== 200) {
-        throw new Error(`Server responded with HTTP ${versionResult.status}`);
-      }
-      
-      let remote = versionResult.data;
-      if (typeof remote === 'string') {
-        try { remote = JSON.parse(remote); } catch(e) {}
-      }
-      const remoteVersion = remote.version;
-      const shortHash = remote.short_hash || remote.version.substring(0, 7);
-
-      // Resolve the actual S3/CDN zip URL bypassing native redirect issues
-      let finalZipUrl = `https://github.com/${repo}/releases/download/ota-latest/update.zip`;
-      try {
-        // We use fetch to GET the redirect URL. This handles cases where Android's native HTTP 
-        // connection drops headers or fails on redirects.
-        const headRes = await CapacitorHttp.request({ method: 'HEAD', url: finalZipUrl });
-        if (headRes.url && headRes.url !== finalZipUrl) {
-          finalZipUrl = headRes.url;
-        }
-        console.log('Resolved direct download URL, stability improved:', finalZipUrl);
-      } catch (e) {
-        console.warn('Could not resolve direct URL, relying on native redirect', e);
-      }
-
-      // Start actual reliable download via Capacitor Updater native bridge
-      let update;
-      try {
-         update = await CapacitorUpdater.download({
-           url: finalZipUrl,
-           version: remoteVersion
-         });
-      } catch (downloadErr: any) {
-         // Fallback retry
-         console.warn('First download attempt failed, retrying...', downloadErr);
-         await new Promise(r => setTimeout(r, 1000));
-         update = await CapacitorUpdater.download({
-           url: finalZipUrl,
-           version: remoteVersion
-         });
-      }
-
-      await this.setPref('app_version', remoteVersion);
-      this.currentAppHash.set(shortHash);
-      
-      // Delay slightly for UI to show 100%
-      await new Promise(r => setTimeout(r, 500));
-      
-      await CapacitorUpdater.set(update);
-    } catch (e: any) {
-      const errMsg = e?.message || String(e);
-      const errStack = e?.stack || 'No Stack';
-      alert(`การอัปเดตล้มเหลว\n\n[ข้อมูลทางเทคนิค]\nError: ${errMsg}\nStack: ${errStack}\n\nกรุณาจับภาพหน้าจอนี้ส่งให้ AI ตรวจสอบ`);
-      this.isUpdating.set(false);
-      this.showUpdateModal.set(false);
-      this.updateStatus.set('error');
-    }
-  }
-
-  async checkUpdateManually() {
-    if (this.updateStatus() === 'checking' || this.isUpdating()) return;
-    this.updateStatus.set('checking');
-    
-    try {
-      if (Capacitor.isNativePlatform()) {
-        const repo = this.githubRepo();
-        const url = `https://github.com/${repo}/releases/download/ota-latest/version.json?t=${Date.now()}`;
-        
-        try {
-          const response = await CapacitorHttp.get({
-            url: url,
-            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-          });
-          if (response.status === 200) {
-            let remote = response.data;
-            if (typeof remote === 'string') {
-              try { remote = JSON.parse(remote); } catch(e) {}
-            }
-            const remoteVersion = remote.version;
-            const shortHash = remote.short_hash || remote.version.substring(0, 7);
-            
-            const localVersion = await this.getPref('app_version');
-            
-            if (remoteVersion && remoteVersion !== localVersion) {
-              this.updateVersion.set(shortHash);
-              this.showUpdateModal.set(true);
-            } else {
-              alert('คุณกำลังใช้งานเวอร์ชันล่าสุดแล้ว (' + shortHash + ')');
-            }
-            this.updateStatus.set('idle');
-          } else if (response.status === 404) {
-            // กรณียังไม่มีการ Release มองว่าเป็นเวอร์ชันล่าสุดเลย
-            alert('คุณกำลังใช้งานเวอร์ชันล่าสุดแล้ว\n(ยังไม่พบประวัติการอัปเดตบน GitHub)');
-            this.updateStatus.set('idle');
-          } else {
-            let bodyText = JSON.stringify(response.data || '');
-            throw new Error(`HTTP Error ${response.status}\nResponseBody: ${bodyText.substring(0, 500)}`);
-          }
-        } catch (e: any) {
-          const errMsg = e?.message || String(e);
-          const errStack = e?.stack || 'No Stack';
-          const detailedMessage = `ไม่สามารถตรวจสอบข้อมูลอัปเดตได้\n\n[ข้อมูลทางเทคนิคสำหรับการแก้ปัญหา]\nURL: ${url}\nError Message: ${errMsg}\nError Type: ${e?.name || 'Unknown'}\n\nStack:\n${errStack}\n\nคำแนะนำ:\n1. จับภาพหน้าจอนี้ส่งให้ AI ช่วยวิเคราะห์\n2. ตรวจสอบว่าชื่อ Repository ถูกต้องและตั้งเป็น Public\n3. อินเทอร์เน็ตอาจถูกบล็อกการเข้าถึง GitHub API`;
-          alert(detailedMessage);
-          this.updateStatus.set('error');
-        }
-      } else {
-        alert('ฟีเจอร์นี้ใช้งานได้บนแอปพลิเคชันมือถือเท่านั้น');
-        this.updateStatus.set('idle');
-      }
-    } catch (e) {
-      this.updateStatus.set('error');
-    }
   }
 
   setTab(tab: 'home' | 'schedule' | 'settings') {
