@@ -57,7 +57,7 @@ app.post('/api/gemini/parse', async (req, res) => {
               {
                 text: 'Extract the class schedule from this image. Guidelines:\n' +
                 '1. Ensure all extracted text (Subject names, Teacher names) is in Thai if it appears in Thai in the image.\n' +
-                '2. If a subject name is missing but a subject code is present, try to infer the subject name or leave it to be the same as the code.\n' +
+                '2. If a subject name is missing but a subject code is present, DO NOT try to infer the subject name. Leave it as an empty string.\n' +
                 '3. Convert Day of Week to English like "Monday", "Tuesday", etc. (for internal logic).\n' +
                 '4. Ensure startTime and endTime are in "HH:MM" 24h format.\n' +
                 '5. If the schedule is in a grid, carefully map the times to the correct days.'
@@ -76,7 +76,7 @@ app.post('/api/gemini/parse', async (req, res) => {
                   startTime: { type: Type.STRING, description: 'Start time in HH:MM format' },
                   endTime: { type: Type.STRING, description: 'End time in HH:MM format' },
                   subjectCode: { type: Type.STRING, description: 'Subject code (e.g., TH31101)' },
-                  subjectName: { type: Type.STRING, description: 'Subject name in Thai (e.g., ภาษาไทยพื้นฐาน). If not explicitly written, infer from code if possible.' },
+                  subjectName: { type: Type.STRING, description: 'Subject name in Thai (e.g., ภาษาไทยพื้นฐาน). Leave empty if not explicitly written.' },
                   room: { type: Type.STRING, description: 'Room number or name' },
                   teacher: { type: Type.STRING, description: 'Teacher name' },
                 },

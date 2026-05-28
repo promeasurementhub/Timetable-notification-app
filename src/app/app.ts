@@ -112,8 +112,85 @@ export class App implements OnInit {
     this.subjectMappings.set(updated);
     await this.setPref('subject_mappings', JSON.stringify(updated));
     
+    // อัปเดตรายวิชาในตารางเรียนให้ใส่ชื่อวิชาอัตโนมัติจาก mapping ที่เพิ่งเข้ามา
+    const currentSchedule = this.store.schedule();
+    const newSchedule = currentSchedule.map(session => {
+      const sessionCode = (session.subjectCode || '').trim().toUpperCase();
+      if (sessionCode === code && !session.subjectName) {
+         return { ...session, subjectName: name };
+      }
+      return session;
+    });
+    this.store.updateSchedule(newSchedule);
+    
     this.newMappingCode.set('');
     this.newMappingName.set('');
+  }
+
+  async importMappings(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    const text = await file.text();
+    const lines = text.split(/\r?\n/);
+    
+    const current = this.subjectMappings();
+    const updated = { ...current };
+    let importedCount = 0;
+    
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      
+      let matched = false;
+      // Handle "Code > | Name"
+      if (line.includes('> |')) {
+        const [code, name] = line.split('> |');
+        updated[code.trim().toUpperCase()] = name.trim();
+        matched = true;
+      }
+      // Handle "Code | Name" or "Code = Name"
+      else if (line.includes('|')) {
+        const [code, name] = line.split('|');
+        updated[code.trim().toUpperCase()] = name.trim();
+        matched = true;
+      } else if (line.includes('=')) {
+        const [code, name] = line.split('=');
+        updated[code.trim().toUpperCase()] = name.trim();
+        matched = true;
+      }
+      // Handle "Code Name" occasionally separated by spaces if exact two parts, but let's just stick to explicit separators to avoid false positives.
+
+      if (matched) {
+        importedCount++;
+      }
+    }
+    
+    if (importedCount > 0) {
+      this.subjectMappings.set(updated);
+      await this.setPref('subject_mappings', JSON.stringify(updated));
+      
+      // อัปเดตรายวิชาในตารางเรียนให้ใส่ชื่อวิชาอัตโนมัติจาก mapping ที่เพิ่งเข้ามา
+      const currentSchedule = this.store.schedule();
+      const newSchedule = currentSchedule.map(session => {
+        const code = (session.subjectCode || '').trim().toUpperCase();
+        const mappedName = updated[code];
+        // ถ้าคาบเรียนนี้มีรหัสตรงกับที่จับคู่ได้ และยังไม่มีชื่อวิชา ให้ใส่ลงไปเลย
+        if (code && mappedName && !session.subjectName) {
+           return { ...session, subjectName: mappedName };
+        }
+        return session;
+      });
+      
+      this.store.updateSchedule(newSchedule);
+      
+      alert(`นำเข้าสำเร็จ ${importedCount} รายวิชา ระบบอัปเดตชื่อวิชาในตารางให้แล้ว`);
+    } else {
+      alert('ไม่พบข้อมูลรายวิชาในรูปแบบที่รองรับ (ตัวอย่างเช่น ว30103 = วิทยาศาสตร์ หรือ ว30103 > | วิทยาศาสตร์)');
+    }
+    
+    // reset input
+    input.value = '';
   }
 
   async saveGeminiKey() {
@@ -140,9 +217,9 @@ export class App implements OnInit {
   }
 
   resolveSubjectName(session: ClassSession): string {
-    const code = (session.subjectCode || '').toUpperCase();
+    const code = (session.subjectCode || '').trim().toUpperCase();
     const mapping = this.subjectMappings();
-    return session.subjectName || mapping[code] || code || 'ไม่ระบุวิชา';
+    return mapping[code] || session.subjectName || code || 'ไม่ระบุวิชา';
   }
 
   getClassStatus(session: ClassSession): 'past' | 'current' | 'future' {
@@ -222,6 +299,36 @@ export class App implements OnInit {
     const list = this.store.schedule();
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     return list.filter(c => c.dayOfWeek === today).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  });
+
+  isSchoolOutForToday = computed(() => {
+    const todayList = this.currentDaySchedule();
+    if (todayList.length === 0) return true;
+    
+    return todayList.every(session => this.getClassStatus(session) === 'past');
+  });
+
+  nextSchoolDayInfo = computed(() => {
+    const list = this.store.schedule();
+    if (list.length === 0) return null;
+
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const todayIdx = days.indexOf(todayStr);
+
+    for (let i = 1; i <= 7; i++) {
+      const checkIdx = (todayIdx + i) % 7;
+      const checkStr = days[checkIdx];
+      const classes = list.filter(c => c.dayOfWeek === checkStr).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      if (classes.length > 0) {
+        return {
+          day: checkStr,
+          isTomorrow: i === 1,
+          classes
+        };
+      }
+    }
+    return null;
   });
 
   async ngOnInit() {
@@ -306,7 +413,18 @@ export class App implements OnInit {
         const base64 = e.target?.result as string;
         try {
           const parsed = await this.gemini.parseScheduleImage(base64, file.type);
-          this.store.updateSchedule(parsed);
+          
+          // อัปเดตชื่อวิชาจาก mappings ที่มีอยู่แล้วอัตโนมัติ
+          const mappings = this.subjectMappings();
+          const mappedParsed = parsed.map((session: ClassSession) => {
+            const code = (session.subjectCode || '').trim().toUpperCase();
+            if (code && mappings[code] && !session.subjectName) {
+              return { ...session, subjectName: mappings[code] };
+            }
+            return session;
+          });
+          
+          this.store.updateSchedule(mappedParsed);
           this.setTab('home');
         } catch (err: any) {
           console.error(err);
