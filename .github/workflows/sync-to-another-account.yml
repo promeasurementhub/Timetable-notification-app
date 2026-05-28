@@ -1,0 +1,41 @@
+name: Sync to Another Account
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Push to Destination Repository
+        env:
+          # ตัวแปรนี้จะดึงค่าจาก GitHub Secrets ที่ตั้งค่าไว้
+          DESTINATION_TOKEN: ${{ secrets.DESTINATION_TOKEN }}
+          DESTINATION_USERNAME: ${{ secrets.DESTINATION_USERNAME }}
+          DESTINATION_REPO: ${{ secrets.DESTINATION_REPO }}
+        run: |
+          if [ -z "$DESTINATION_TOKEN" ]; then
+            echo "Error: DESTINATION_TOKEN is not set in Secrets."
+            exit 1
+          fi
+          if [ -z "$DESTINATION_USERNAME" ] || [ -z "$DESTINATION_REPO" ]; then
+            echo "Error: DESTINATION_USERNAME or DESTINATION_REPO is not set in Secrets."
+            exit 1
+          fi
+          
+          echo "Syncing to https://github.com/$DESTINATION_USERNAME/$DESTINATION_REPO"
+          
+          # ผูก URL ของ Repository ปลายทางเข้าไป
+          DEST_REPO_URL="https://${DESTINATION_USERNAME}:${DESTINATION_TOKEN}@github.com/${DESTINATION_USERNAME}/${DESTINATION_REPO}.git"
+          
+          git remote add destination "$DEST_REPO_URL"
+          git push destination HEAD:main --force
