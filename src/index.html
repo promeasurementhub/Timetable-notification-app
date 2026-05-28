@@ -5,16 +5,23 @@
     <title>แจ้งเตือนตารางเรียนอัจฉริยะ</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="icon.svg" />
-    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="apple-touch-icon" href="/app-icon-192.png" />
   </head>
   <body>
     <app-root></app-root>
     <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
+      window.deferredPrompt = null;
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        window.dispatchEvent(new CustomEvent("pwa-install-available"));
+      });
+
+      function registerServiceWorker() {
+        if ("serviceWorker" in navigator) {
           navigator.serviceWorker.register("/firebase-messaging-sw.js").then(
             (registration) => {
               console.log(
@@ -26,7 +33,13 @@
               console.log("ServiceWorker registration failed: ", err);
             },
           );
-        });
+        }
+      }
+
+      if (document.readyState === "complete" || document.readyState === "interactive") {
+        registerServiceWorker();
+      } else {
+        window.addEventListener("load", registerServiceWorker);
       }
     </script>
   </body>

@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { AppStore } from './store';
 import { ClassSession, AppSettings } from './models';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
@@ -15,16 +17,49 @@ export class NotificationService {
   }
 
   requestPermission() {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      import('./firebase-client').then(({ requestFirebaseNotificationPermission }) => {
-        requestFirebaseNotificationPermission().then(token => {
-          if (token) {
-            console.log('Firebase Push Notifications Enabled');
-            localStorage.setItem('fcm_token_granted', 'true');
+    return new Promise<boolean>((resolve) => {
+      if (typeof window !== 'undefined') {
+        if (Capacitor.isNativePlatform()) {
+          LocalNotifications.requestPermissions().then((permission) => {
+            resolve(permission.display === 'granted');
+          }).catch(err => {
+            console.warn('Capacitor notifications permission error:', err);
+            resolve(false);
+          });
+          return;
+        }
+
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            resolve(true);
+            return;
           }
-        });
-      }).catch(err => console.warn('Failed to load firebase client:', err));
-    }
+          
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              import('./firebase-client').then(({ requestFirebaseNotificationPermission }) => {
+                requestFirebaseNotificationPermission().then(token => {
+                  if (token) {
+                    console.log('Firebase Push Notifications Enabled');
+                    localStorage.setItem('fcm_token_granted', 'true');
+                  }
+                  resolve(true);
+                });
+              }).catch(err => {
+                console.warn('Failed to load firebase client:', err);
+                resolve(true); // Still treat as granted if browser perm is ok
+              });
+            } else {
+              resolve(false);
+            }
+          });
+        } else {
+          resolve(false);
+        }
+      } else {
+        resolve(false);
+      }
+    });
   }
 
   startChecking() {
@@ -48,12 +83,18 @@ export class NotificationService {
     const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
     const currentHours = now.getHours();
     const currentMinutes = now.getMinutes();
+    const currentTimeStr = `${currentHours.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`;
 
     const schedule = this.store.schedule();
     const settings = this.store.settings();
 
-    for (const session of schedule) {
-      if (session.dayOfWeek !== currentDay) continue;
+    // Sort schedule by start time
+    const todayClasses = schedule
+      .filter(s => s.dayOfWeek === currentDay)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    for (let i = 0; i < todayClasses.length; i++) {
+      const session = todayClasses[i];
 
       // Check start time (1 min before)
       const startParts = session.startTime.split(':');
@@ -72,7 +113,10 @@ export class NotificationService {
           const key = `start_${session.id}_${now.toDateString()}`;
           if (!this.notifiedSet.has(key)) {
             this.notifiedSet.add(key);
-            this.sendNotification('Upcoming Class', session, settings);
+            
+            const prevSession = i > 0 ? todayClasses[i-1] : null;
+            const classNumber = i + 1;
+            this.sendClassTransitionNotification(currentTimeStr, prevSession, session, classNumber, settings);
           }
         }
       }
@@ -88,7 +132,7 @@ export class NotificationService {
             const key = `end_${session.id}_${now.toDateString()}`;
             if (!this.notifiedSet.has(key)) {
               this.notifiedSet.add(key);
-              this.sendNotification('Class Ended', session, settings, true);
+              this.sendNotification('หมดคาบเรียน', `หมดคาบเรียนที่ ${i + 1} วิชา ${this.resolveName(session)} แล้ว`, 'end', settings);
             }
           }
         }
@@ -96,59 +140,96 @@ export class NotificationService {
     }
   }
 
-  private sendNotification(title: string, session: ClassSession, settings: AppSettings, isEnd = false) {
-    const thaiTitle = isEnd ? 'หมดคาบเรียน' : 'คาบเรียนถัดไป';
-    let body = '';
-
-    // Get mappings to resolve names
+  private resolveName(session: ClassSession): string {
     let mappings: Record<string, string> = {};
     try {
       const saved = localStorage.getItem('subject_mappings');
       if (saved) mappings = JSON.parse(saved);
-    } catch(e) {}
-
-    const resolvedName = session.subjectName || mappings[session.subjectCode?.toUpperCase() || ''] || session.subjectCode;
-    
-    if (isEnd) {
-      body = `หมดคาบเรียนวิชา ${resolvedName || 'ไม่ระบุ'} แล้ว`;
-    } else {
-      const parts = [];
-      const showName = settings.notifySubjectName && resolvedName;
-      const showCode = settings.notifySubjectCode && session.subjectCode && session.subjectCode !== resolvedName;
-      
-      let nameStr = '';
-      if (showName) nameStr += resolvedName;
-      if (showCode) nameStr += (showName ? ` (${session.subjectCode})` : session.subjectCode);
-      
-      if (nameStr) parts.push(nameStr);
-      if (settings.notifyRoom && session.room) parts.push(`ห้อง: ${session.room}`);
-      if (settings.notifyTeacher && session.teacher) parts.push(`ครู: ${session.teacher}`);
-      
-      body = parts.length > 0 ? parts.join('\n') : 'ไม่มีข้อมูลรายละเอียดวิชา';
+    } catch {
+      // Ignore if parsing or loading fails
     }
+    return session.subjectName || mappings[session.subjectCode?.toUpperCase() || ''] || session.subjectCode || 'ไม่ระบุวิชา';
+  }
 
+  private sendClassTransitionNotification(time: string, prev: ClassSession | null, next: ClassSession, classNum: number, settings: AppSettings) {
+    const nextName = this.resolveName(next);
+    const prevName = prev ? this.resolveName(prev) : 'พักผ่อน/ก่อนเข้าเรียน';
+    
+    const prefix = classNum === 1 ? 'เริ่มเรียนคาบแรก' : `เริ่มเรียนคาบที่ ${classNum}`;
+    
+    let body = `ขณะนี้เวลา ${time} น. (${prefix})\nเปลี่ยนจาก ${prevName} → ${nextName}`;
+    if (next.room) body += `\nเรียนห้อง: ${next.room}`;
+    if (next.teacher) body += `\nคุณครู: ${next.teacher}`;
+
+    this.sendNotification('เปลี่ยนคาบเรียน', body, 'start', settings);
+  }
+
+  sendTestNotification(settings: AppSettings) {
+    this.sendNotification(
+      'ทดสอบระบบแจ้งเตือน',
+      `ขณะนี้เวลา ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.\nนี่คือการทดสอบส่งการแจ้งเตือนจากระบบแอปตารางเรียนของคุณ`,
+      'start',
+      settings
+    );
+  }
+
+  private sendNotification(title: string, body: string, type: 'start' | 'end', settings: AppSettings) {
     // 1. Play Sound
     this.playNotificationSound(settings.notificationSound);
 
     // 2. Set Visual In-app Popup
     this.store.activeNotification.set({
-      title: thaiTitle,
+      title,
       body,
-      type: isEnd ? 'end' : 'start'
+      type
     });
 
-    // Auto-dismiss in-app popup after user-defined duration
+    // Auto-dismiss
     const durationMilli = (settings.popupDuration || 10) * 1000;
     setTimeout(() => {
       this.store.activeNotification.set(null);
     }, durationMilli);
 
-    // 3. System Notification (if permitted)
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification(thaiTitle, {
-        body,
-        icon: '/favicon.ico'
-      });
+    // 3. System Notification
+    if (typeof window !== 'undefined') {
+      if (Capacitor.isNativePlatform()) {
+        LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body,
+              id: Math.floor(Math.random() * 1000000),
+              schedule: { at: new Date(Date.now() + 100) },
+              sound: 'default'
+            }
+          ]
+        }).catch(err => {
+          console.warn('Failed to schedule native Local Notification:', err);
+        });
+      } else if ('Notification' in window && Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(registration => {
+            const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
+              body,
+              icon: '/app-icon-192.png',
+              badge: '/app-icon-192.png',
+              tag: 'class-alert',
+              renotify: true,
+              vibrate: [200, 100, 200]
+            };
+            registration.showNotification(title, options);
+          });
+        } else {
+          try {
+            new Notification(title, {
+              body,
+              icon: '/app-icon-192.png'
+            });
+          } catch (err) {
+            console.warn('Standard notification fallback failed', err);
+          }
+        }
+      }
     }
   }
 
@@ -156,11 +237,14 @@ export class NotificationService {
     if (typeof window === 'undefined') return;
     if (customSound) {
       const audio = new Audio(customSound);
-      audio.play().catch(e => console.warn('Failed', e));
+      audio.play().catch(e => console.warn('Failed to play custom sound', e));
       return;
     }
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const windowWithWebkit = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+      const AudioContextClass = windowWithWebkit.AudioContext || windowWithWebkit.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
       const t = ctx.currentTime;
       const freqs = [659, 988]; // E5, B5
       freqs.forEach((freq, i) => {

@@ -10,6 +10,11 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { environment } from '../environments/environment';
 
+interface PwaInstallPrompt {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-root',
@@ -21,6 +26,7 @@ export class App implements OnInit {
   store = inject(AppStore);
   gemini = inject(GeminiService);
   notification = inject(NotificationService);
+  notificationPermission = signal<NotificationPermission | 'unsupported'>('default');
 
   activeTab = signal<'home' | 'schedule' | 'settings'>('home');
   isProcessing = signal(false);
@@ -32,8 +38,11 @@ export class App implements OnInit {
   newMappingName = signal('');
   userGeminiKey = signal('');
   githubRepo = signal('khaophan/Timetable-notification-app');
-  deferredPrompt = signal<any>(null);
+  deferredPrompt = signal<PwaInstallPrompt | null>(null);
   editingSession = signal<ClassSession | null>(null);
+  updateAvailable = signal(false);
+  isCheckingUpdate = signal(false);
+  isInIframe = signal(typeof window !== 'undefined' && window.self !== window.top);
 
   editForm = new FormGroup({
     id: new FormControl('', { nonNullable: true }),
@@ -61,15 +70,28 @@ export class App implements OnInit {
         this.currentTime.set(new Date());
       }, 1000);
 
+      const windowWithPwa = window as unknown as { deferredPrompt: PwaInstallPrompt | null | undefined };
+
+      // Read existing deferredPrompt from window (captured by index.html)
+      if (windowWithPwa.deferredPrompt) {
+        this.deferredPrompt.set(windowWithPwa.deferredPrompt);
+      }
+
+      window.addEventListener('pwa-install-available', () => {
+        if (windowWithPwa.deferredPrompt) {
+          this.deferredPrompt.set(windowWithPwa.deferredPrompt);
+        }
+      });
+
       window.addEventListener('beforeinstallprompt', (e) => {
-        // Prevent the mini-infobar from appearing on mobile
         e.preventDefault();
-        // Stash the event so it can be triggered later.
-        this.deferredPrompt.set(e);
+        windowWithPwa.deferredPrompt = e as unknown as PwaInstallPrompt;
+        this.deferredPrompt.set(e as unknown as PwaInstallPrompt);
       });
 
       window.addEventListener('appinstalled', () => {
         this.deferredPrompt.set(null);
+        windowWithPwa.deferredPrompt = null;
       });
     }
   }
@@ -84,7 +106,7 @@ export class App implements OnInit {
     }
   }
 
-  private async getPref(key: string, fallback: string = ''): Promise<string> {
+  private async getPref(key: string, fallback = ''): Promise<string> {
     if (Capacitor.isNativePlatform()) {
       const { value } = await Preferences.get({ key });
       return value || fallback;
@@ -210,8 +232,8 @@ export class App implements OnInit {
   }
 
   async removeMapping(code: string) {
-    const current = this.subjectMappings();
-    const { [code]: _, ...updated } = current;
+    const updated = { ...this.subjectMappings() };
+    delete updated[code];
     this.subjectMappings.set(updated);
     await this.setPref('subject_mappings', JSON.stringify(updated));
   }
@@ -334,6 +356,52 @@ export class App implements OnInit {
   async ngOnInit() {
     this.notification.startChecking();
     
+    if (typeof window !== 'undefined') {
+      if ('Notification' in window) {
+        this.notificationPermission.set(Notification.permission);
+        if (Notification.permission === 'default') {
+          // Trigger the native Android / Browser prompt automatically on startup
+          this.notification.requestPermission().then(() => {
+            this.notificationPermission.set(Notification.permission);
+          });
+        }
+      } else {
+        this.notificationPermission.set('unsupported');
+      }
+
+      // Check Service Worker Updates
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg) {
+            // Check if there is already a waiting worker
+            if (reg.waiting) {
+              this.updateAvailable.set(true);
+            }
+
+            // Periodically check/update on boot
+            reg.update().catch(err => console.log('SW automatic update check failed:', err));
+
+            // Notify when a new worker becomes available
+            reg.addEventListener('updatefound', () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.addEventListener('statechange', () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    this.updateAvailable.set(true);
+                  }
+                });
+              }
+            });
+          }
+        });
+
+        // Listen for controller taking over -> reload app instantly
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+      }
+    }
+
     // Load preferences async
     const [savedMappings, geminiKey, repo] = await Promise.all([
       this.getPref('subject_mappings'),
@@ -426,9 +494,10 @@ export class App implements OnInit {
           
           this.store.updateSchedule(mappedParsed);
           this.setTab('home');
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error(err);
-          alert(`ไม่สามารถวิเคราะห์ตารางเรียนได้: ${err.message || 'กรุณาลองใหม่อีกครั้ง'}`);
+          const errorMsg = err instanceof Error ? err.message : 'กรุณาลองใหม่อีกครั้ง';
+          alert(`ไม่สามารถวิเคราะห์ตารางเรียนได้: ${errorMsg}`);
         } finally {
           this.isProcessing.set(false);
         }
@@ -440,8 +509,76 @@ export class App implements OnInit {
     }
   }
 
-  updateSetting(key: string, value: any) {
+  updateSetting(key: string, value: string | number | boolean | undefined) {
     this.store.updateSettings({ [key]: value });
+  }
+
+  async requestNotificationPermission() {
+    const granted = await this.notification.requestPermission();
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      this.notificationPermission.set(Notification.permission);
+    }
+    if (granted) {
+      alert('อนุญาตการแจ้งเตือนเรียบร้อยแล้ว');
+    } else {
+      alert('การแจ้งเตือนถูกปฏิเสธ หากต้องการเปิดกรุณาตั้งค่าในเบราว์เซอร์');
+    }
+  }
+
+  async testNotification() {
+    if (this.notificationPermission() !== 'granted') {
+      const granted = await this.notification.requestPermission();
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        this.notificationPermission.set(Notification.permission);
+      }
+      if (!granted) {
+        alert('กรุณาอนุญาตการแจ้งเตือนก่อนทำการทดสอบ');
+        return;
+      }
+    }
+    this.notification.sendTestNotification(this.store.settings());
+  }
+
+  async checkForUpdates() {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      alert('เบราว์เซอร์นี้ไม่รองรับระบบตรวจหาเวอร์ชัน');
+      return;
+    }
+
+    this.isCheckingUpdate.set(true);
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update();
+        if (reg.waiting) {
+          this.updateAvailable.set(true);
+          alert('พบแอปเวอร์ชันใหม่ล่าสุดแล้ว! ระบบกำลังอัปเดต...');
+        } else {
+          // Soft check to verify
+          await new Promise(resolve => setTimeout(resolve, 800));
+          alert('ตารางเรียนของคุณเป็นเวอร์ชันล่าสุดแล้ว ✨ มั่นใจได้ ไม่จำเป็นต้องติดตั้งหรือโหลดใหม่!');
+        }
+      } else {
+        alert('ไม่พบระบบช่วยบริการ Service Worker ของตารางเรียน กรุณารีโหลดหน้าเจอนี้อีกครั้ง');
+      }
+    } catch (e) {
+      console.warn('Check update error:', e);
+      alert('ไม่สามารถจัดส่งคำขอตรวจสอบอัปเดตได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      this.isCheckingUpdate.set(false);
+    }
+  }
+
+  applyUpdate() {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (reg && reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } else {
+          window.location.reload();
+        }
+      });
+    }
   }
 }
 

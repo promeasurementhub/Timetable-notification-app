@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Minimalist background -->
-  <rect width="512" height="512" rx="128" fill="#ffffff" />
-  <!-- Minimalist clock/schedule stroke -->
-  <rect x="144" y="144" width="224" height="224" rx="64" fill="none" stroke="#0f172a" stroke-width="36"/>
-  <path d="M256 192 V264 L304 312" fill="none" stroke="#0f172a" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
