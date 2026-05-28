@@ -38,7 +38,10 @@ jobs:
           echo "1. The destination repository ($DESTINATION_REPO) is already created in the target account."
           echo "2. DESTINATION_TOKEN (Personal Access Token) has 'repo' permissions."
           
-          DEST_REPO_URL="https://${DESTINATION_USERNAME}:${DESTINATION_TOKEN}@github.com/${DESTINATION_USERNAME}/${DESTINATION_REPO}.git"
+          DEST_REPO_URL="https://x-access-token:${DESTINATION_TOKEN}@github.com/${DESTINATION_USERNAME}/${DESTINATION_REPO}.git"
           
-          git remote add destination "$DEST_REPO_URL"
-          git push destination HEAD:main --force
+          # ยกเลิก config เดิมที่ actions/checkout อาจจะทิ้งไว้
+          git config --local --unset-all "http.https://github.com/.extraheader" || true
+          
+          # ใช้ git push โดยระบุ URL ตรงๆ
+          git push "$DEST_REPO_URL" HEAD:main --force
