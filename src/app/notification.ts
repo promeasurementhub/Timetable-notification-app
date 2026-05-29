@@ -214,26 +214,40 @@ export class NotificationService {
     // 3. System Notification
     if (typeof window !== 'undefined') {
       if (Capacitor.isNativePlatform()) {
-        LocalNotifications.schedule({
-          notifications: [
-            {
-              title,
-              body,
-              id: Math.floor(Math.random() * 1000000),
-              schedule: { at: new Date(Date.now() + 100) },
-              sound: 'default'
-            }
-          ]
+        LocalNotifications.createChannel({
+          id: 'class-alerts',
+          name: 'แจ้งเตือนคาบเรียนด่วน',
+          description: 'แสดงป้ายเตือนลอยด้านบนขอบจอ (Heads-up Alert)',
+          importance: 5,
+          sound: 'default',
+          visibility: 1,
+          vibration: true
+        }).then(() => {
+          LocalNotifications.schedule({
+            notifications: [
+              {
+                title,
+                body,
+                id: Math.floor(Math.random() * 1000000),
+                schedule: { at: new Date(Date.now() + 100) },
+                sound: 'default',
+                channelId: 'class-alerts'
+              }
+            ]
+          }).catch(err => {
+            console.warn('Failed to schedule native Local Notification:', err);
+          });
         }).catch(err => {
-          console.warn('Failed to schedule native Local Notification:', err);
+          console.warn('Failed to register notification channel:', err);
         });
       } else if ('Notification' in window && Notification.permission === 'granted') {
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then(registration => {
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
             const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
               body,
-              icon: '/app-icon-192.png',
-              badge: '/app-icon-192.png',
+              icon: baseUrl + '/app-icon-192.png',
+              badge: baseUrl + '/app-icon-192.png',
               tag: 'class-alert',
               renotify: true,
               vibrate: [200, 100, 200]
@@ -242,9 +256,10 @@ export class NotificationService {
           });
         } else {
           try {
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
             new Notification(title, {
               body,
-              icon: '/app-icon-192.png'
+              icon: baseUrl + '/app-icon-192.png'
             });
           } catch (err) {
             console.warn('Standard notification fallback failed', err);
@@ -302,6 +317,17 @@ export class NotificationService {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
+      // Create high-importance channel first so notifications show as heads-up banners on Android
+      await LocalNotifications.createChannel({
+        id: 'class-alerts',
+        name: 'แจ้งเตือนคาบเรียนด่วน',
+        description: 'แสดงป้ายเตือนลอยด้านบนขอบจอ (Heads-up Alert)',
+        importance: 5,
+        sound: 'default',
+        visibility: 1,
+        vibration: true
+      });
+
       const pendingRes = await LocalNotifications.getPending();
       if (pendingRes?.notifications?.length > 0) {
         await LocalNotifications.cancel({
@@ -382,7 +408,8 @@ export class NotificationService {
               repeats: true,
               allowWhileIdle: true
             },
-            sound: 'default'
+            sound: 'default',
+            channelId: 'class-alerts'
           });
         }
 
@@ -409,7 +436,8 @@ export class NotificationService {
                 repeats: true,
                 allowWhileIdle: true
               },
-              sound: 'default'
+              sound: 'default',
+              channelId: 'class-alerts'
             });
           }
         }
