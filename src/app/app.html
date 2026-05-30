@@ -227,7 +227,7 @@
     >
       <!-- Home Tab -->
       @if (activeTab() === 'home') {
-      <div class="space-y-6">
+      <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
         <!-- App Installation Promo Card -->
         @if (deferredPrompt()) {
         <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-[32px] p-6 text-white shadow-xl shadow-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-4 border-indigo-900">
@@ -327,10 +327,11 @@
           <div
             class="space-y-5 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-5"
           >
-            @for (session of currentDaySchedule(); track session.id) { @let
+            @for (session of currentDaySchedule(); track session.id; let idx = $index) { @let
             status = getClassStatus(session);
             <div
-              class="bg-white transition-all duration-500 border relative overflow-hidden"
+              class="bg-white transition-all duration-500 border relative overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both"
+              [style.animation-delay.ms]="idx * 75"
               [class.rounded-[32px]]="status !== 'future'"
               [class.rounded-2xl]="status === 'future'"
               [class.p-6]="status !== 'future'"
@@ -570,7 +571,7 @@
 
       <!-- Schedule Tab -->
       @if (activeTab() === 'schedule') {
-      <div class="space-y-6">
+      <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
         <section>
           <h2
             class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3"
@@ -632,8 +633,8 @@
           <div
             class="space-y-6 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 items-start"
           >
-            @for (day of groupedSchedule(); track day.day) {
-            <div class="flex flex-col h-full">
+            @for (day of groupedSchedule(); track day.day; let dayIdx = $index) {
+            <div class="flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both" [style.animation-delay.ms]="dayIdx * 100">
               <h3
                 class="text-[10px] font-bold whitespace-nowrap bg-slate-200 text-slate-600 px-3 py-1 rounded-full inline-block uppercase tracking-widest mb-3 self-start"
               >
@@ -642,9 +643,10 @@
               <div
                 class="bg-white rounded-3xl shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-96 md:max-h-[500px] overflow-y-auto custom-scrollbar flex-1"
               >
-                @for (session of day.classes; track session.id) {
+                @for (session of day.classes; track session.id; let sessIdx = $index) {
                 <div
-                  class="p-4 px-5 flex justify-between items-center group cursor-pointer hover:bg-slate-50 transition-colors"
+                  class="p-4 px-5 flex justify-between items-center group cursor-pointer hover:bg-slate-50 transition-colors animate-in fade-in slide-in-from-left-4 duration-500 ease-out fill-mode-both"
+                  [style.animation-delay.ms]="(dayIdx * 100) + (sessIdx * 50)"
                   (click)="editSessionData(session)"
                 >
                   <div>
@@ -683,7 +685,7 @@
 
       <!-- Calendar Tab -->
       @if (activeTab() === 'calendar') {
-      <div class="space-y-8 pb-12">
+      <div class="space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
         <div class="flex items-center justify-between mb-2">
           <div>
             <h2 class="text-xl font-black text-slate-800">ปฏิทินโรงเรียน</h2>
@@ -697,8 +699,8 @@
           </div>
         </div>
 
-        @for (month of calendarMonths(); track month.month) {
-        <div class="bg-white rounded-[32px] p-5 shadow-lg shadow-slate-200/40 border border-slate-100">
+        @for (month of calendarMonths(); track month.month; let mIdx = $index) {
+        <div class="bg-white rounded-[32px] p-5 shadow-lg shadow-slate-200/40 border border-slate-100 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both" [style.animation-delay.ms]="mIdx * 100">
           <h3 class="text-lg font-black text-indigo-700 mb-4 ml-2 border-l-4 border-indigo-500 pl-3">
              {{ month.name }}
           </h3>
@@ -760,7 +762,7 @@
 
       <!-- Settings Tab -->
       @if (activeTab() === 'settings') {
-      <div class="space-y-6 max-w-2xl">
+      <div class="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
         <!-- Notification Permission Request Section -->
         <section>
           <div

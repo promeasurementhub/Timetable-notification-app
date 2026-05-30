@@ -8,28 +8,10 @@
   "start_url": "/",
   "icons": [
     {
-      "src": "/app-icon-v2.svg",
-      "sizes": "any",
+      "src": "/app-icon.svg",
+      "sizes": "192x192 512x512",
       "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/app-icon-v2.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/app-icon-192-v2.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any"
-    },
-    {
-      "src": "/app-icon-512-v2.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
