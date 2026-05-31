@@ -1,0 +1,104 @@
+@keyframes tabEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.99);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes slideDownHeader {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes itemEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ringGrowth {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+/* Custom premium transitions using cubic-bezier(0.22, 1, 0.36, 1) */
+.animate-tab-entrance {
+  animation: tabEntrance 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-slide-down-header {
+  animation: slideDownHeader 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-card-entrance {
+  animation: cardEntrance 1100ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-item-entrance {
+  animation: itemEntrance 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-ring-grow {
+  animation: ringGrowth 2.5s cubic-bezier(0.25, 0, 0, 1) infinite;
+}
+
+/* Premium active tab highlight glow */
+.pulse-highlight {
+  position: relative;
+}
+.pulse-highlight::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid rgb(99, 102, 241);
+  opacity: 0;
+  animation: ringGrowth 1.5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* Force hardware block rendering */
+.animate-tab-entrance,
+.animate-slide-down-header,
+.animate-card-entrance,
+.animate-item-entrance {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
