@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -16,7 +16,7 @@ if (typeof window !== 'undefined' && 'Notification' in window) {
 }
 
 // Generate or retrieve anonymous user UID since we don't have user authentication
-const getOrCreateUserUid = (): string => {
+export const getOrCreateUserUid = (): string => {
   if (typeof window === 'undefined') return 'unknown_user';
   let uid = localStorage.getItem('app_user_uid');
   if (!uid) {
@@ -24,6 +24,53 @@ const getOrCreateUserUid = (): string => {
     localStorage.setItem('app_user_uid', uid);
   }
   return uid;
+};
+
+export const uploadDiagnosticLogs = async (logs: unknown[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const uid = getOrCreateUserUid();
+    const logDoc = doc(db, 'users', uid, 'diagnostics', new Date().toISOString());
+    await setDoc(logDoc, {
+      logs,
+      uploadedAt: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    });
+    console.log('Diagnostic logs uploaded successfully.');
+  } catch (err) {
+    console.error('Failed to upload diagnostic logs to Firebase:', err);
+  }
+};
+
+export const backupScheduleSettings = async (schedule: unknown, settings: unknown, active: unknown) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const uid = getOrCreateUserUid();
+    await setDoc(doc(db, 'users', uid, 'backup', 'data'), {
+      schedule,
+      settings,
+      active,
+      updatedAt: new Date().toISOString()
+    });
+    console.log('Schedule data backed up to cloud successfully.');
+  } catch (err) {
+    console.error('Failed to backup schedule data:', err);
+  }
+};
+
+export const restoreScheduleSettings = async () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const uid = getOrCreateUserUid();
+    const snap = await getDoc(doc(db, 'users', uid, 'backup', 'data'));
+    if (snap.exists()) {
+      console.log('Schedule data restored from cloud successfully.');
+      return snap.data();
+    }
+  } catch (err) {
+    console.error('Failed to restore schedule data:', err);
+  }
+  return null;
 };
 
 export const requestFirebaseNotificationPermission = async () => {

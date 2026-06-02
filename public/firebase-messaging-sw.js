@@ -28,6 +28,8 @@ try {
       body: payload.notification?.body || payload.data?.body,
       icon: "/app-icon-192-v5.png",
       badge: "/app-icon-192-v5.png",
+      data: payload.data || { url: '/' },
+      vibrate: [200, 100, 200]
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
@@ -35,6 +37,37 @@ try {
 } catch (err) {
   console.warn("Firebase Messaging SDK failed to initialize in service worker (expected if offline or blocked):", err);
 }
+
+self.addEventListener('notificationclick', function(event) {
+  console.log('[firebase-messaging-sw.js] Notification click Received.', event);
+  
+  event.notification.close();
+  
+  const urlToOpen = (event.notification.data && event.notification.data.url) ? 
+                    new URL(event.notification.data.url, self.location.origin).href : 
+                    new URL('/', self.location.origin).href;
+
+  const promiseChain = clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  }).then((windowClients) => {
+    let matchingClient = null;
+    for (let i = 0; i < windowClients.length; i++) {
+      const windowClient = windowClients[i];
+      if (windowClient.url === urlToOpen || windowClient.url === self.location.origin + '/') {
+        matchingClient = windowClient;
+        break;
+      }
+    }
+    if (matchingClient) {
+      return matchingClient.focus();
+    } else {
+      return clients.openWindow(urlToOpen);
+    }
+  });
+
+  event.waitUntil(promiseChain);
+});
 
 const CACHE_NAME = 'timetable-cache-v8';
 const URLS_TO_CACHE = [

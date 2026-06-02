@@ -5,11 +5,17 @@ import { MatIconModule } from '@angular/material/icon';
 import { AppStore } from './store';
 import { GeminiService } from './gemini';
 import { NotificationService } from './notification';
-import { ClassSession } from './models';
+import { ClassSession, AppSettings } from './models';
 import { CalendarDay, CalendarMonth, THAI_MONTHS, PUBLIC_HOLIDAYS_2026 } from './calendar';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { environment } from '../environments/environment';
+
+interface BackupData {
+  schedule?: ClassSession[];
+  settings?: AppSettings;
+  active?: boolean;
+}
 
 interface PwaInstallPrompt {
   prompt(): Promise<void>;
@@ -29,9 +35,26 @@ export class App implements OnInit {
   notification = inject(NotificationService);
   notificationPermission = signal<NotificationPermission | 'unsupported'>('default');
 
-  activeTab = signal<'home' | 'schedule' | 'calendar' | 'settings'>('home');
+  activeTab = signal<'home' | 'schedule' | 'calendar' | 'settings' | 'debug'>('home');
   isProcessing = signal(false);
   currentTime = signal<Date>(new Date());
+  
+  readinessScore = computed(() => {
+    let score = 100;
+    
+    if (this.notificationPermission() !== 'granted') score -= 40;
+    
+    if (this.isNativePlatform()) {
+      if (this.notification.exactAlarmPermission() !== 'granted') score -= 40;
+      
+      const m = this.notification.deviceInfo()?.manufacturer;
+      if (['Xiaomi', 'OPPO', 'vivo', 'HUAWEI'].includes(m || '') && !this.notification.batteryOptimizationConfirmed()) {
+        score -= 20;
+      }
+    }
+    
+    return Math.max(0, score);
+  });
   
   // Subject Mapping
   subjectMappings = signal<Record<string, string>>({});
@@ -46,7 +69,10 @@ export class App implements OnInit {
   isInIframe = signal(typeof window !== 'undefined' && window.self !== window.top);
   isInAppBrowser = signal(false);
   isStandalone = signal(typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as { standalone?: boolean }).standalone === true));
+  isNativePlatform = signal(Capacitor.isNativePlatform());
   swStatus = signal<'checking' | 'registered' | 'failed' | 'not_supported'>('checking');
+  showOnboarding = signal(false);
+  
   preNotifyMinutes = computed(() => this.store.settings().preNotifyMinutes ?? 3);
   calendarMonths = computed(() => this.generateCalendar());
   selectedDate = signal<CalendarDay | null>(null);
@@ -502,7 +528,31 @@ export class App implements OnInit {
       return;
     }
     const val = this.editForm.getRawValue();
+    
+    // Validate end time must be after start time
+    if (val.startTime && val.endTime && val.endTime <= val.startTime) {
+       alert('เวลาเลิกเรียนต้องอยู่หลังเวลาเริ่มเรียน');
+       return;
+    }
+    
     const currentSchedule = this.store.schedule();
+    
+    // Prevent overlapping times on same day
+    const overlapping = currentSchedule.some(s => 
+      s.id !== val.id && 
+      s.dayOfWeek === val.dayOfWeek && 
+      (
+        (val.startTime >= s.startTime && val.startTime < s.endTime) ||
+        (val.endTime > s.startTime && val.endTime <= s.endTime) ||
+        (val.startTime <= s.startTime && val.endTime >= s.endTime)
+      )
+    );
+    
+    if (overlapping) {
+       alert('เวลาเรียนที่แก้ไขทับซ้อนกับวิชาอื่นในวันเดียวกัน');
+       return;
+    }
+
     const updated = currentSchedule.map(s => s.id === val.id ? val : s);
     this.store.updateSchedule(updated);
     this.editingSession.set(null);
@@ -521,6 +571,44 @@ export class App implements OnInit {
     return result;
   });
 
+  addSampleSchedule() {
+    const todayStr = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][this.currentTime().getDay()];
+    // Set 2 fake classes: one 5 mins from now, one 2 hours from now
+    const now = this.currentTime();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    
+    const time1 = new Date(now.getTime() + 5 * 60000); // 5 mins from now
+    const time1End = new Date(now.getTime() + 55 * 60000); // 50 mins class
+    
+    const time2 = new Date(now.getTime() + 60 * 60000); // 1 hour from now
+    const time2End = new Date(now.getTime() + 110 * 60000); 
+
+    const sample = [
+      {
+        id: 'sample_' + Date.now(),
+        subjectName: 'วิทยาศาสตร์ (ตัวอย่าง)',
+        subjectCode: 'SCI101',
+        room: 'B401',
+        teacher: 'อ.ใจดี',
+        startTime: pad(time1.getHours()) + ':' + pad(time1.getMinutes()),
+        endTime: pad(time1End.getHours()) + ':' + pad(time1End.getMinutes()),
+        dayOfWeek: todayStr
+      },
+      {
+        id: 'sample_' + Date.now() + 1,
+        subjectName: 'คณิตศาสตร์ (ตัวอย่าง)',
+        subjectCode: 'MATH101',
+        room: 'A102',
+        teacher: 'อ.สมใจ',
+        startTime: pad(time2.getHours()) + ':' + pad(time2.getMinutes()),
+        endTime: pad(time2End.getHours()) + ':' + pad(time2End.getMinutes()),
+        dayOfWeek: todayStr
+      }
+    ];
+    this.store.updateSchedule(sample);
+    alert('สร้างตารางเรียนตัวอย่าง 2 วิชาสำหรับวันนี้เรียบร้อยแล้ว ลองทดสอบการทำงานได้เลย');
+  }
+
   currentDaySchedule = computed(() => {
     const list = this.store.schedule();
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -536,6 +624,57 @@ export class App implements OnInit {
     
     return todayList.every(session => this.getClassStatus(session) === 'past');
   });
+
+  tomorrowDaySchedule = computed(() => {
+    const list = this.store.schedule();
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const tomorrow = new Date(this.currentTime().getTime() + 86400000); // Add 24 hours
+    const tomorrowStr = days[tomorrow.getDay()];
+    return list.filter(c => c.dayOfWeek === tomorrowStr).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  });
+
+  todaySmartSummary = computed(() => {
+    const count = this.currentDaySchedule().length;
+    if (this.todayHolidayInfo().isHoliday) return `วันนี้เป็นวันหยุด (${this.todayHolidayInfo().name}) พักผ่อนให้เต็มที่!`;
+    if (count === 0) return 'วันนี้ไม่มีคาบเรียนในระบบ';
+    
+    // check if all past
+    if (this.isSchoolOutForToday()) return 'วันนี้เรียนจบแล้ว เก่งมาก!';
+    
+    return `วันนี้มีเรียนทั้งหมด ${count} คาบ`;
+  });
+
+  tomorrowSmartSummary = computed(() => {
+    const count = this.tomorrowDaySchedule().length;
+    if (count === 0) return 'คุณยังไม่มีตารางเรียนสำหรับวันพรุ่งนี้';
+    const firstClass = this.tomorrowDaySchedule()[0];
+    return `พรุ่งนี้เริ่มต้นวันด้วยวิชา${firstClass.subjectName || ''} เวลา ${firstClass.startTime} น.`;
+  });
+
+  timeUntilNextAlarmText = computed(() => {
+    const next = this.notification.nextAlarm();
+    if (!next) return '';
+    const now = this.currentTime().getTime();
+    const target = next.time.getTime();
+    const diffMs = target - now;
+    if (diffMs <= 0) return 'กำลังถึงเวลา...';
+    
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `อีก ${days} วัน ${hours % 24} ชั่วโมง`;
+    }
+    if (hours > 0) {
+      return `อีก ${hours} ชั่วโมง ${mins} นาที`;
+    }
+    return `อีก ${mins} นาที`;
+  });
+  
+  cloudBackupAvailable = signal<BackupData | null>(null);
+  showRestorePrompt = signal(false);
 
   nextSchoolDayInfo = computed(() => {
     const list = this.store.schedule();
@@ -590,16 +729,11 @@ export class App implements OnInit {
 
   async ngOnInit() {
     this.notification.startChecking();
+    this.checkCloudBackupOnBoot();
     
     if (typeof window !== 'undefined') {
       if ('Notification' in window) {
         this.notificationPermission.set(Notification.permission);
-        if (Notification.permission === 'default') {
-          // Trigger the native Android / Browser prompt automatically on startup
-          this.notification.requestPermission().then(() => {
-            this.notificationPermission.set(Notification.permission);
-          });
-        }
       } else {
         this.notificationPermission.set('unsupported');
       }
@@ -638,10 +772,11 @@ export class App implements OnInit {
     }
 
     // Load preferences async
-    const [savedMappings, geminiKey, repo] = await Promise.all([
+    const [savedMappings, geminiKey, repo, onboardingStatus] = await Promise.all([
       this.getPref('subject_mappings'),
       this.getPref('user_gemini_key'),
-      this.getPref('github_repo', 'khaophan/Timetable-notification-app')
+      this.getPref('github_repo', 'khaophan/Timetable-notification-app'),
+      this.getPref('has_seen_onboarding', 'false')
     ]);
 
     if (savedMappings) {
@@ -653,9 +788,28 @@ export class App implements OnInit {
     }
     this.userGeminiKey.set(geminiKey);
     this.githubRepo.set(repo);
+
+    // Show onboarding if they are in Standalone/PWA mode and haven't seen it yet
+    if (onboardingStatus === 'false' && typeof window !== 'undefined' && 'Notification' in window) {
+       // Only show if it is not already granted or denied (meaning it's 'default')
+       if (this.notificationPermission() === 'default') {
+          this.showOnboarding.set(true);
+       }
+    }
   }
 
-  setTab(tab: 'home' | 'schedule' | 'settings' | 'calendar') {
+  async acceptOnboarding() {
+    this.showOnboarding.set(false);
+    await this.setPref('has_seen_onboarding', 'true');
+    await this.requestNotificationPermission();
+  }
+
+  async declineOnboarding() {
+    this.showOnboarding.set(false);
+    await this.setPref('has_seen_onboarding', 'true');
+  }
+
+  setTab(tab: 'home' | 'schedule' | 'settings' | 'calendar' | 'debug') {
     this.activeTab.set(tab);
   }
 
@@ -774,6 +928,73 @@ export class App implements OnInit {
     } else {
       alert('การแจ้งเตือนถูกปฏิเสธ หากต้องการเปิดกรุณาตั้งค่าในเบราว์เซอร์');
     }
+  }
+
+  hasDisplayableHistory(logs: { state: string }[]) {
+    return logs.some(l => l.state === 'delivered' || l.state === 'missed');
+  }
+  
+  dismissRestore() {
+    this.showRestorePrompt.set(false);
+  }
+  
+  async checkCloudBackupOnBoot() {
+    if (this.store.schedule().length > 0) return; // Only prompt if local is empty
+    try {
+      const { restoreScheduleSettings } = await import('./firebase-client');
+      const data = await restoreScheduleSettings();
+      if (data && data['schedule'] && data['schedule'].length > 0) {
+        this.cloudBackupAvailable.set(data as BackupData);
+        this.showRestorePrompt.set(true);
+      }
+    } catch (e) {
+      console.warn('Failed to check cloud backup on boot:', e);
+    }
+  }
+
+  async acceptRestorePrompt() {
+    const data = this.cloudBackupAvailable();
+    if (data) {
+      this.isProcessing.set(true);
+      try {
+        if (data.schedule) this.store.updateSchedule(data.schedule);
+        if (data.settings) this.store.settings.set(data.settings);
+        if (data.active !== undefined) this.store.isActive.set(data.active);
+        await this.notification.verifyAndHealSchedule(); // Recreate native alarms
+        this.showRestorePrompt.set(false);
+      } catch (e) {
+         console.error('Auto restore failed:', e);
+      }
+      this.isProcessing.set(false);
+    }
+  }
+
+  async forceBackupData() {
+    this.isProcessing.set(true);
+    try {
+      const { backupScheduleSettings } = await import('./firebase-client');
+      // Already running implicitly via effect in store but we can force it here
+      await backupScheduleSettings(this.store.schedule(), this.store.settings(), this.store.isActive());
+      alert('สำรองข้อมูลขึ้นคลาวด์สำเร็จแล้ว');
+    } catch (e) {
+      console.error('Cloud backup error:', e);
+      alert('เกิดข้อผิดพลาดในการสำรองข้อมูล');
+    }
+    this.isProcessing.set(false);
+  }
+  
+  async restoreData() {
+    this.isProcessing.set(true);
+    try {
+      await this.store.restoreFromCloud();
+      await this.notification.verifyAndHealSchedule(); // ensure alarms are recreated
+      alert('กู้คืนข้อมูลและอัปเดตตารางสำหรับเครื่องนี้เรียบร้อยแล้ว');
+      this.setTab('home');
+    } catch (e) {
+      console.error('Cloud restore error:', e);
+      alert('ไม่พบข้อมูลสำรองบนคลาวด์ หรือเกิดข้อผิดพลาด');
+    }
+    this.isProcessing.set(false);
   }
 
   async testNotification() {

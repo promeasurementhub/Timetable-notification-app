@@ -1,19 +1,64 @@
-import { Injectable, inject, effect } from '@angular/core';
+import { Injectable, inject, effect, signal } from '@angular/core';
 import { AppStore } from './store';
 import { ClassSession, AppSettings } from './models';
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { LocalNotifications, PendingResult } from '@capacitor/local-notifications';
+import { Device, DeviceInfo } from '@capacitor/device';
+import { uploadDiagnosticLogs } from './firebase-client';
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  title: string;
+  state: 'created' | 'scheduled' | 'delivered' | 'displayed' | 'clicked' | 'missed';
+  details: string;
+}
+
+export interface SystemLog {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  category: 'system' | 'notification' | 'sync' | 'alarm';
+  message: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private store = inject(AppStore);
   private notifiedSet = new Set<string>();
   private intervalId?: ReturnType<typeof setInterval>;
+  
+  // Observability layer
+  logs = signal<SystemLog[]>([]);
+  exactAlarmPermission = signal<'granted' | 'denied' | 'unknown'>('unknown');
+  scheduledCount = signal<number>(0);
+  pendingAlarms = signal<PendingResult | null>(null);
+  
+  // Reliability Metrics
+  notificationsScheduled = signal<number>(0);
+  notificationsFired = signal<number>(0);
+  deviceInfo = signal<DeviceInfo | null>(null);
+  
+  auditLogs = signal<AuditEvent[]>([]);
+  batteryOptimizationConfirmed = signal<boolean>(false);
+  nextAlarm = signal<{title: string, time: Date, subjectName: string} | null>(null);
+  lastCheckedTime = signal<Date | null>(null);
+  scheduleIntegrityScore = signal<number>(100);
 
   constructor() {
+    this.loadLogs();
+    
     if (typeof window !== 'undefined') {
-      this.requestPermission();
+      this.checkNativeCapabilities();
+      this.setupNativeListeners();
       
+      // Check integrity on start and when returning to the app
+      setTimeout(() => this.verifyAndHealSchedule(), 2000);
+      document.addEventListener('visibilitychange', () => {
+         if (document.visibilityState === 'visible') {
+            this.verifyAndHealSchedule();
+         }
+      });
+
       // Auto-schedule native alarms in OS whenever schedule or settings change
       effect(() => {
         // Trigger on any change of these signals
@@ -25,6 +70,223 @@ export class NotificationService {
       });
     }
   }
+
+  private async setupNativeListeners() {
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.addListener('localNotificationReceived', (notification) => {
+        this.notificationsFired.update(c => c + 1);
+        this.saveMetrics();
+        this.addLog('info', 'notification', `Alarm Fired: ${notification.title}`);
+        this.addAudit(notification.id?.toString() || 'unknown', notification.title || 'Unknown', 'delivered', 'Android received the alarm and fired it');
+      });
+      
+      LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+        this.addLog('info', 'notification', `User interacted with alarm: ${action.actionId}`);
+        this.addAudit(action.notification.id?.toString() || 'unknown', action.notification.title || 'Unknown', 'clicked', `Action: ${action.actionId}`);
+      });
+    }
+  }
+
+  // --- Observability (Logging) ---
+  addAudit(id: string, title: string, state: AuditEvent['state'], details: string) {
+    const timestamp = new Date().toISOString();
+    const newAudit: AuditEvent = { id, timestamp, title, state, details };
+
+    this.auditLogs.update(current => {
+      const updated = [newAudit, ...current].slice(0, 500); // keep up to 500 audit logs
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('sched_audit_logs', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  }
+
+  exportLogsAsJson() {
+    const data = {
+      systemLogs: this.logs(),
+      auditLogs: this.auditLogs(),
+      deviceInfo: this.deviceInfo(),
+      metrics: {
+        scheduled: this.notificationsScheduled(),
+        fired: this.notificationsFired()
+      }
+    };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `diagnostic_logs_${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  addLog(level: 'info' | 'warn' | 'error', category: 'system' | 'notification' | 'sync' | 'alarm', message: string) {
+    const timestamp = new Date().toISOString();
+    const newLog: SystemLog = { timestamp, level, category, message };
+    
+    this.logs.update(current => {
+      const updated = [newLog, ...current].slice(0, 100); // Keep last 100 logs
+      this.saveLogs(updated);
+      return updated;
+    });
+    
+    if (level === 'error') {
+      console.error(`[${category}] ${message}`);
+      // Push critical errors to Cloud
+      uploadDiagnosticLogs([newLog]);
+    } else if (level === 'warn') {
+      console.warn(`[${category}] ${message}`);
+    } else {
+      console.log(`[${category}] ${message}`);
+    }
+  }
+
+  private saveLogs(logsToSave: SystemLog[]) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('sched_diagnostic_logs', JSON.stringify(logsToSave));
+    }
+  }
+
+  private saveMetrics() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('sched_metrics_fired', this.notificationsFired().toString());
+      localStorage.setItem('sched_metrics_scheduled', this.notificationsScheduled().toString());
+    }
+  }
+
+  private loadLogs() {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('sched_diagnostic_logs');
+      if (saved) {
+        try {
+          this.logs.set(JSON.parse(saved));
+        } catch {
+          this.addLog('warn', 'system', 'Failed to parse previous logs. Starting fresh.');
+        }
+      }
+      
+      const savedFired = localStorage.getItem('sched_metrics_fired');
+      const savedScheduled = localStorage.getItem('sched_metrics_scheduled');
+      if (savedFired) this.notificationsFired.set(parseInt(savedFired, 10));
+      if (savedScheduled) this.notificationsScheduled.set(parseInt(savedScheduled, 10));
+      
+      const savedAudits = localStorage.getItem('sched_audit_logs');
+      if (savedAudits) {
+        try {
+          this.auditLogs.set(JSON.parse(savedAudits));
+        } catch (err) {
+          console.warn('Failed to parse saved audits:', err);
+        }
+      }
+      
+      const batteryConfirmed = localStorage.getItem('sched_battery_confirmed');
+      if (batteryConfirmed === 'true') this.batteryOptimizationConfirmed.set(true);
+    }
+    this.addLog('info', 'system', 'Diagnostics service initialized.');
+  }
+
+  confirmBatteryOptimizationResolved() {
+    this.batteryOptimizationConfirmed.set(true);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('sched_battery_confirmed', 'true');
+    }
+    this.addLog('info', 'system', 'User confirmed battery optimization is resolved.');
+  }
+
+  private calculateNextOccurrence(weekday: number, hour: number, minute: number): Date {
+    const now = new Date();
+    // Capacitor weekdays: 1 = Sunday, 2 = Monday, ..., 7 = Saturday
+    // JS Date.getDay(): 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const currentJsDay = now.getDay();
+    const currentCapacitorDay = currentJsDay + 1;
+    
+    let daysToAdd = weekday - currentCapacitorDay;
+    if (daysToAdd < 0 || (daysToAdd === 0 && (now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute)))) {
+      daysToAdd += 7;
+    }
+    
+    const nextDate = new Date(now);
+    nextDate.setDate(now.getDate() + daysToAdd);
+    nextDate.setHours(hour, minute, 0, 0);
+    return nextDate;
+  }
+
+  async verifyAndHealSchedule() {
+    this.lastCheckedTime.set(new Date());
+    if (typeof window === 'undefined') return;
+    
+    const scheduleCount = this.store.schedule().length;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const pending = await LocalNotifications.getPending();
+        let closestAlarm: {title: string, time: Date, subjectName: string} | null = null;
+        let closestDate = Infinity;
+        
+        pending.notifications.forEach(n => {
+          let alarmTime: Date | null = null;
+          if (n.schedule?.at) {
+            alarmTime = new Date(n.schedule.at);
+          } else if (n.schedule?.on) {
+            alarmTime = this.calculateNextOccurrence(n.schedule.on.weekday!, n.schedule.on.hour!, n.schedule.on.minute!);
+          }
+          
+          if (alarmTime && alarmTime.getTime() < closestDate) {
+            closestDate = alarmTime.getTime();
+            closestAlarm = {
+              title: n.title || 'การแจ้งเตือน',
+              time: alarmTime,
+              subjectName: n.body || ''
+            };
+          }
+        });
+        
+        this.nextAlarm.set(closestAlarm);
+        
+        // Auto heal logic
+        // Only if app is active and schedule exists but pending alarms are zero
+        if (this.store.isActive() && scheduleCount > 0 && pending.notifications.length === 0) {
+           this.addLog('warn', 'system', 'Integrity issue detected: Schedule has items but OS has 0 alarms. Healing...');
+           this.scheduleIntegrityScore.set(50);
+           await this.scheduleAllNativeNotifications();
+           this.scheduleIntegrityScore.set(100);
+        } else {
+           this.scheduleIntegrityScore.set(100);
+        }
+      } catch(e) {
+        this.addLog('error', 'system', `Failed verify integrity: ${e}`);
+      }
+    }
+  }
+
+  async checkNativeCapabilities() {
+    if (Capacitor.isNativePlatform()) {
+       try {
+         const info = await Device.getInfo();
+         this.deviceInfo.set(info);
+         this.addLog('info', 'system', `Device Info: ${info.manufacturer} ${info.model} (Android ${info.osVersion})`);
+         
+         if (['Xiaomi', 'OPPO', 'vivo', 'HUAWEI'].includes(info.manufacturer)) {
+           this.addLog('warn', 'system', `Warning: ${info.manufacturer} devices often employ aggressive battery optimization which can delay alarms. Ensure app is excluded from battery optimization/doze mode.`);
+         }
+
+         const { display } = await LocalNotifications.checkPermissions();
+         this.addLog('info', 'system', `LocalNotification permissions checked. Display: ${display}`);
+         // Since Android 12 requires EXACT_ALARM for precise schedule, we assume true if not erroring. 
+         this.exactAlarmPermission.set(display === 'granted' ? 'granted' : 'unknown');
+         
+         const pending = await LocalNotifications.getPending();
+         this.pendingAlarms.set(pending);
+         this.scheduledCount.set(pending.notifications.length);
+         this.addLog('info', 'alarm', `Currently ${pending.notifications.length} native alarms pending in AlarmManager.`);
+       } catch (err) {
+         this.addLog('error', 'system', `Failed to check native capabilities: ${err}`);
+       }
+    }
+  }
+
 
   requestPermission() {
     return new Promise<boolean>((resolve) => {
@@ -75,6 +337,13 @@ export class NotificationService {
   startChecking() {
     if (typeof window === 'undefined') return;
     if (this.intervalId) return;
+    
+    // Check if we are running in browser and have FCM permission explicitly
+    if (!Capacitor.isNativePlatform()) {
+       console.log("Browser environment detected. Starting local schedule check interval.");
+    }
+
+    // เริ่มทำงานการเช็คเวลาทุกๆ 10 วินาที
     this.intervalId = setInterval(() => this.checkSchedule(), 10000); // every 10s
     this.checkSchedule();
   }
@@ -447,9 +716,18 @@ export class NotificationService {
         await LocalNotifications.schedule({
           notifications: notificationsToSchedule
         });
-        console.log(`Successfully scheduled ${notificationsToSchedule.length} native weekly alarms!`);
+        
+        this.notificationsScheduled.update(c => c + 1);
+        this.saveMetrics();
+        this.addLog('info', 'alarm', `Successfully scheduled ${notificationsToSchedule.length} native alarms.`);
+        
+        // Refresh count
+        this.checkNativeCapabilities();
+      } else {
+        this.addLog('info', 'alarm', 'No native alarms required by current schedule/settings.');
       }
     } catch (err) {
+      this.addLog('error', 'alarm', `Failed to schedule native Local Notifications: ${err}`);
       console.warn('Failed to schedule native Local Notifications:', err);
     }
   }

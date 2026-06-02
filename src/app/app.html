@@ -1,94 +1,105 @@
-<div
-  class="h-screen w-full bg-slate-50 text-slate-800 flex flex-col md:flex-row font-sans relative overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]"
->
-  <div
-    class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-emerald-500 to-sky-500 z-50"
-  ></div>
+<div class="h-screen w-full bg-slate-100 text-slate-800 flex font-sans relative overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]">
 
-  <!-- Desktop Sidebar -->
-  <aside
-    class="hidden md:flex w-72 bg-white shadow-[10px_0_40px_-15px_rgba(0,0,0,0.05)] border-r border-slate-100 flex-col z-30 shrink-0"
-  >
-    <div class="p-8 pb-6">
-      <h1 class="text-3xl font-black text-slate-800 tracking-tight">
-        ตารางเรียน
-      </h1>
-      <p
-        class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1"
-      >
-        ระบบแจ้งเตือนอัจฉริยะ
-      </p>
+  <!-- ================= DESKTOP / IPAD SIDEBAR ================= -->
+  <aside class="hidden md:flex flex-col w-80 bg-white border-r border-slate-200 shrink-0 relative z-30 justify-between">
+    <div class="p-8">
+      <!-- Official ClassSync Brand Header -->
+      <div class="flex items-center gap-3.5 mb-6">
+        <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+          <mat-icon class="!w-6 !h-6 !text-[24px]">school</mat-icon>
+        </div>
+        <div>
+          <h1 class="text-base font-black text-slate-800 leading-tight tracking-tight">ระบบตารางเรียนอัจฉริยะ</h1>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">OBEC Core-Standard Sync</p>
+        </div>
+      </div>
+      
+      <!-- Trust Certification Card for OBEC Networks -->
+      <div class="bg-indigo-50/50 border border-indigo-100/60 rounded-2xl p-4 mb-6">
+        <div class="flex items-start gap-2.5">
+          <mat-icon class="text-indigo-600 !w-4 !h-4 !text-[16px] mt-0.5">verified_user</mat-icon>
+          <div>
+            <h4 class="text-xs font-black text-indigo-900">สื่อและระบบผลิตตารางกิจกรรม</h4>
+            <p class="text-[10px] text-indigo-700/80 font-medium mt-0.5 leading-relaxed">
+              สนับสนุนความปลอดภัยและสุขภาวะในการจัดการเวลาเรียนตามหลักสูตรแกนกลางฯ สพฐ.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="space-y-1.5">
+        <button
+          (click)="setTab('home')"
+          class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold text-sm text-left"
+          [class.bg-indigo-50]="activeTab() === 'home'"
+          [class.text-indigo-600]="activeTab() === 'home'"
+          [class.text-slate-500]="activeTab() !== 'home'"
+          [class.hover:bg-slate-50]="activeTab() !== 'home'"
+        >
+          <mat-icon>dashboard</mat-icon>
+          <span>คาบเรียนวันนี้</span>
+        </button>
+
+        <button
+          (click)="setTab('schedule')"
+          class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold text-sm text-left"
+          [class.bg-indigo-50]="activeTab() === 'schedule'"
+          [class.text-indigo-600]="activeTab() === 'schedule'"
+          [class.text-slate-500]="activeTab() !== 'schedule'"
+          [class.hover:bg-slate-50]="activeTab() !== 'schedule'"
+        >
+          <mat-icon>calendar_view_week</mat-icon>
+          <span>ตารางเรียน</span>
+        </button>
+
+        <button
+          (click)="setTab('calendar')"
+          class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold text-sm text-left"
+          [class.bg-indigo-50]="activeTab() === 'calendar'"
+          [class.text-indigo-600]="activeTab() === 'calendar'"
+          [class.text-slate-500]="activeTab() !== 'calendar'"
+          [class.hover:bg-slate-50]="activeTab() !== 'calendar'"
+        >
+          <mat-icon>calendar_month</mat-icon>
+          <span>ปฏิทิน & วันปิดเทอม</span>
+        </button>
+
+        <button
+          (click)="setTab('settings')"
+          class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold text-sm text-left"
+          [class.bg-indigo-50]="activeTab() === 'settings'"
+          [class.text-indigo-600]="activeTab() === 'settings'"
+          [class.text-slate-500]="activeTab() !== 'settings'"
+          [class.hover:bg-slate-50]="activeTab() !== 'settings'"
+        >
+          <mat-icon>settings</mat-icon>
+          <span>ตั้งค่า & สำรองคลาวด์</span>
+        </button>
+      </div>
     </div>
 
-    <nav class="flex-1 px-4 space-y-2 mt-4">
-      <button
-        (click)="setTab('home')"
-        class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all hover:bg-slate-50"
-        [class.bg-indigo-50]="activeTab() === 'home'"
-        [class.text-indigo-600]="activeTab() === 'home'"
-        [class.text-slate-500]="activeTab() !== 'home'"
-      >
-        <mat-icon>dashboard</mat-icon>
-        <span class="font-bold text-sm">คาบเรียนวันนี้</span>
-      </button>
-
-      <button
-        (click)="setTab('schedule')"
-        class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all hover:bg-slate-50"
-        [class.bg-indigo-50]="activeTab() === 'schedule'"
-        [class.text-indigo-600]="activeTab() === 'schedule'"
-        [class.text-slate-500]="activeTab() !== 'schedule'"
-      >
-        <mat-icon>calendar_view_week</mat-icon>
-        <span class="font-bold text-sm">ตารางเรียน</span>
-      </button>
-
-      <button
-        (click)="setTab('calendar')"
-        class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all hover:bg-slate-50"
-        [class.bg-indigo-50]="activeTab() === 'calendar'"
-        [class.text-indigo-600]="activeTab() === 'calendar'"
-        [class.text-slate-500]="activeTab() !== 'calendar'"
-      >
-        <mat-icon>calendar_month</mat-icon>
-        <span class="font-bold text-sm">ปฏิทิน</span>
-      </button>
-
-      <button
-        (click)="setTab('settings')"
-        class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all hover:bg-slate-50"
-        [class.bg-indigo-50]="activeTab() === 'settings'"
-        [class.text-indigo-600]="activeTab() === 'settings'"
-        [class.text-slate-500]="activeTab() !== 'settings'"
-      >
-        <mat-icon>settings</mat-icon>
-        <span class="font-bold text-sm">ตั้งค่า</span>
-      </button>
-    </nav>
-
+    <!-- Switch Active Status -->
     <div class="p-6 border-t border-slate-100 bg-slate-50/50">
-      <div
-        class="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-slate-100"
-      >
+      <div class="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
         <div>
-          <h4 class="text-xs font-black text-slate-700">การแจ้งเตือน</h4>
+          <h4 class="text-xs font-black text-slate-700">ระบบแจ้งเตือน</h4>
           <span
             class="text-[9px] font-bold uppercase tracking-widest mt-0.5 block"
             [class.text-emerald-500]="store.isActive()"
             [class.text-slate-400]="!store.isActive()"
           >
-            {{ store.isActive() ? 'กำลังทำงาน' : 'ปิดการทำงาน' }}
+            {{ store.isActive() ? 'กำลังทำงานอัตโนมัติ' : 'ปิดชั่วคราว' }}
           </span>
         </div>
         <button
           (click)="toggleActive()"
-          class="w-12 h-6 rounded-full relative transition-colors duration-300 shadow-inner"
+          class="w-12 h-6 rounded-full relative transition-colors duration-300"
           [class.bg-emerald-500]="store.isActive()"
           [class.bg-slate-300]="!store.isActive()"
         >
           <div
-            class="w-4 h-4 rounded-full absolute top-1 transition-transform duration-300 shadow-sm"
-            [class.bg-white]="true"
+            class="w-4 h-4 rounded-full absolute top-1 transition-transform duration-300 shadow-sm bg-white"
             [class.translate-x-7]="store.isActive()"
             [class.translate-x-1]="!store.isActive()"
           ></div>
@@ -97,10 +108,10 @@
     </div>
   </aside>
 
-  <!-- Main View Area -->
-  <div
-    class="flex-1 flex flex-col relative min-w-0 md:bg-slate-50/20 overflow-hidden"
-  >
+  <!-- ================= ADAPTIVE MAIN AREA (Full screen, fluid responsive design) ================= -->
+  <div class="flex-1 bg-slate-50 flex flex-col relative min-w-0 overflow-hidden">
+    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-emerald-500 to-sky-500 z-50"></div>
+    
     <!-- Floating In-app Notification (SMS Style) -->
     @if (store.activeNotification(); as notification) {
     <div
@@ -176,28 +187,20 @@
     }
 
     <!-- Header -->
-    <header
-      class="pt-12 md:pt-10 pb-6 md:pb-8 px-6 md:px-10 bg-white md:bg-transparent md:border-none md:shadow-none shrink-0 rounded-b-[40px] md:rounded-none shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] z-10 flex justify-between items-center border-b border-slate-100"
-    >
-      <div class="md:hidden">
+    <header class="pt-12 pb-6 px-6 bg-white shrink-0 rounded-b-[40px] shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] z-10 flex justify-between items-center border-b border-slate-100">
+      <div>
         <h1 class="text-2xl font-black text-slate-800 tracking-tight">
-          ตารางเรียน
+          @if (activeTab() === 'home') { คาบเรียนวันนี้ } 
+          @else if (activeTab() === 'schedule') { ตารางเรียนอัจฉริยะ } 
+          @else if (activeTab() === 'calendar') { วันหยุดปิดเทอม }
+          @else { ตั้งค่าระบบ }
         </h1>
-        <p
-          class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1"
-        >
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
           ระบบแจ้งเตือนอัจฉริยะ
         </p>
       </div>
 
-      <div class="hidden md:block">
-        <h2 class="text-3xl font-black text-slate-800 tracking-tight">
-          @if (activeTab() === 'home') { คาบเรียนวันนี้ } @else if (activeTab()
-          === 'schedule') { ตารางเรียนอัจฉริยะ } @else { ตั้งค่าระบบ }
-        </h2>
-      </div>
-
-      <div class="flex items-center gap-3 md:hidden">
+      <div class="flex items-center gap-3">
         <span
           class="text-[10px] font-bold uppercase tracking-widest"
           [class.text-emerald-700]="store.isActive()"
@@ -228,6 +231,71 @@
       <!-- Home Tab -->
       @if (activeTab() === 'home') {
       <div class="space-y-6 animate-tab-entrance animate-card-entrance">
+      
+        <!-- Smart Assistant Summary -->
+        <div class="bg-indigo-50/50 rounded-[32px] p-5 border border-indigo-100 flex gap-4 items-center">
+          <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-indigo-200">
+            <mat-icon class="!w-6 !h-6 !text-[24px]">face</mat-icon>
+          </div>
+          <div>
+            <p class="font-black text-indigo-900 text-sm tracking-tight">{{ todaySmartSummary() }}</p>
+            <p class="text-xs text-indigo-700/80 font-medium mt-0.5">{{ tomorrowSmartSummary() }}</p>
+          </div>
+        </div>
+      
+        <!-- Notification Confidence Center -->
+        @if (notification.nextAlarm() && store.isActive()) {
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden flex flex-col gap-4">
+           <!-- BG Icon -->
+           <div class="absolute -right-6 -bottom-6 text-white/5 pointer-events-none">
+             <mat-icon class="!w-48 !h-48 !text-[192px]">notifications_active</mat-icon>
+           </div>
+           
+           <div class="flex items-start justify-between relative z-10">
+              <div class="flex flex-col">
+                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">แจ้งเตือนครั้งถัดไป</span>
+                 <span class="text-xl font-black text-white mb-1">{{ notification.nextAlarm()!.subjectName }}</span>
+                 <div class="flex items-baseline gap-2">
+                    <span class="text-3xl font-black text-emerald-400">{{ timeUntilNextAlarmText() }}</span>
+                 </div>
+                 <span class="text-xs font-bold text-slate-400 mt-2 flex items-center gap-1.5">
+                   <mat-icon class="!w-3.5 !h-3.5 !text-[14px]">schedule</mat-icon>
+                   เวลา {{ notification.nextAlarm()!.time | date:'HH:mm' }} น.
+                 </span>
+              </div>
+              
+              <div class="flex flex-col items-end gap-2 text-right">
+                 @if (readinessScore() >= 80) {
+                   <div class="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded-full border border-emerald-500/30">
+                     <mat-icon class="!w-3.5 !h-3.5 !text-[14px]">check_circle</mat-icon>
+                     <span class="text-[10px] font-bold">ระบบพร้อมใช้งาน</span>
+                   </div>
+                 } @else {
+                   <button (click)="setTab('settings')" class="flex items-center gap-1.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 px-3 py-1.5 rounded-full border border-amber-500/30 transition-colors">
+                     <mat-icon class="!w-3.5 !h-3.5 !text-[14px]">warning</mat-icon>
+                     <span class="text-[10px] font-bold">ตรวจสอบตั้งค่า</span>
+                   </button>
+                 }
+                 
+                 <span class="text-[9px] text-slate-500 font-mono mt-1">
+                   ตรวจสอบล่าสุด {{ notification.lastCheckedTime() | date:'shortTime' }}
+                 </span>
+              </div>
+           </div>
+           
+           <!-- Recovery Button explicitly shown if something is off or missing but we are supposed to have alarms -->
+           @if (notification.scheduleIntegrityScore() < 100) {
+             <div class="relative z-10 mt-2 bg-slate-800/80 backdrop-blur-sm rounded-xl p-3 border border-amber-500/30 flex items-center justify-between">
+                <div>
+                   <p class="text-[10px] font-bold text-amber-400">ระบบฟื้นฟูอัตโนมัติทำงานแล้ว</p>
+                   <p class="text-[9px] text-slate-400">พบตารางเรียนในเครื่อง แต่ขาดการแจ้งเตือนในระบบ (ดำเนินการซ่อมแซมแล้ว)</p>
+                </div>
+                <mat-icon class="text-amber-400 !w-4 !h-4 !text-[16px] animate-spin">autorenew</mat-icon>
+             </div>
+           }
+        </div>
+        }
+
         <!-- App Installation Promo Card -->
         @if (deferredPrompt()) {
         <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-[32px] p-6 text-white shadow-xl shadow-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-4 border-indigo-900">
@@ -543,19 +611,28 @@
         }
 
         @if (store.schedule().length === 0) {
-        <div
-          class="bg-indigo-600 rounded-3xl p-6 shadow-lg shadow-indigo-200 text-center text-white mt-8"
-        >
-          <h3 class="font-bold mb-2">ยังไม่ได้อัปโหลดตารางเรียน</h3>
-          <p class="text-sm opacity-90 mb-6 font-medium">
-            อัปโหลดรูปภาพตารางเรียนของคุณเพื่อเริ่มใช้งานการแจ้งเตือนอัตโนมัติ
+        <div class="bg-indigo-50 rounded-[32px] p-8 text-center text-indigo-900 mt-6 border border-indigo-100 flex flex-col items-center">
+          <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-indigo-500 mb-4 shadow-sm">
+            <mat-icon class="!w-8 !h-8 !text-[32px]">waving_hand</mat-icon>
+          </div>
+          <h3 class="font-black text-xl mb-2">ยินดีต้อนรับ! มาเริ่มสร้างตารางเรียนแรกกัน</h3>
+          <p class="text-xs opacity-80 mb-6 font-medium max-w-xs leading-relaxed">
+            เพิ่มตารางเรียนของคุณเพื่อให้ระบบเริ่มทำงาน แจ้งเตือนเวลาเข้าเรียนและเลิกเรียนอัตโนมัติ
           </p>
-          <button
-            (click)="setTab('schedule')"
-            class="bg-white text-indigo-600 px-6 py-3 rounded-full text-sm font-bold shadow-sm hover:hover:scale-[1.02] active:scale-95 transition-transform w-full"
-          >
-            อัปโหลดเลย
-          </button>
+          <div class="flex flex-col gap-3 w-full sm:w-auto min-w-[200px]">
+             <button
+               (click)="setTab('schedule')"
+               class="bg-indigo-600 text-white px-6 py-3.5 rounded-2xl text-sm font-black shadow-md shadow-indigo-600/20 active:scale-95 transition-transform w-full"
+             >
+               เพิ่มตารางเรียน
+             </button>
+             <button
+               (click)="addSampleSchedule()"
+               class="bg-white text-indigo-600 px-6 py-3.5 rounded-2xl text-sm font-bold border border-indigo-200 active:scale-95 transition-transform w-full hover:bg-slate-50"
+             >
+               เพิ่มตารางเรียนตัวอย่าง
+             </button>
+          </div>
         </div>
         }
 
@@ -813,6 +890,51 @@
                 </div>
               }
             </div>
+            
+            <!-- Health Status -->
+            <div class="mt-4 border-t border-slate-100 pt-4 flex flex-col gap-3 relative">
+               
+              @if (notificationPermission() === 'denied') {
+                <div class="flex items-start gap-2 bg-rose-50 p-3 rounded-2xl border border-rose-100 pr-10">
+                  <div class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 animate-pulse shrink-0"></div>
+                  <div>
+                    <p class="text-[11px] font-black text-rose-700">🔴 ปิดสิทธิ์การแจ้งเตือน</p>
+                    <p class="text-[10px] text-rose-600 mt-0.5">การแจ้งเตือนจะไม่ทำงานจนกว่าจะไปเปิดสิทธิ์ในตั้งค่ามือถือ</p>
+                  </div>
+                </div>
+              } 
+              
+              @if (isNativePlatform() && notification.exactAlarmPermission() !== 'granted') {
+                 <div class="flex items-start gap-2 bg-rose-50 p-3 rounded-2xl border border-rose-100">
+                    <div class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 animate-pulse shrink-0"></div>
+                    <div>
+                      <p class="text-[11px] font-black text-rose-700">🔴 ขาดสิทธิ์ Exact Alarm</p>
+                      <p class="text-[10px] text-rose-600 mt-0.5">จำเป็นต้องเปิดสิทธิ์ "Alarms & Reminders" สำหรับ Android เพื่อให้เตือนตรงเวลา</p>
+                    </div>
+                  </div>
+              }
+              
+              @if (['Xiaomi', 'OPPO', 'vivo', 'HUAWEI'].includes(notification.deviceInfo()?.manufacturer || '') && !notification.batteryOptimizationConfirmed()) {
+                <div class="flex items-start gap-2 bg-amber-50 p-3 rounded-2xl border border-amber-100">
+                  <div class="w-2 h-2 rounded-full bg-amber-500 mt-1.5 animate-pulse shrink-0"></div>
+                  <div>
+                    <p class="text-[11px] font-black text-amber-700">🟡 เสี่ยงโดนปิดแจ้งเตือนอัตโนมัติ</p>
+                    <p class="text-[10px] text-amber-600 mt-0.5">เครื่อง {{ notification.deviceInfo()?.manufacturer }} มักฆ่าแอปนี้เบื้องหลัง ไปที่ตั้งค่าแบตเตอรี่และเลือก "ไม่จำกัด (No Restriction)" หรือ "อนุญาตทำงานเบื้องหลัง"</p>
+                    <button (click)="notification.confirmBatteryOptimizationResolved()" class="mt-2 text-[10px] font-bold bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-300 transition-colors">รับทราบและตั้งค่าแล้ว</button>
+                  </div>
+                </div>
+              } 
+              
+              @if (readinessScore() === 100) {
+                <div class="flex items-start gap-2 bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
+                  <div class="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0"></div>
+                  <div>
+                    <p class="text-[11px] font-black text-emerald-700">🟢 อนุญาตสิทธิ์ครบถ้วน</p>
+                    <p class="text-[10px] text-emerald-600 mt-0.5">ระบบจะทำงานได้เสถียร หากไม่ได้ยินเสียงโปรดเช็คโหมดห้ามรบกวน</p>
+                  </div>
+                </div>
+              }
+            </div>
 
             @if (notificationPermission() !== 'granted') {
             <div class="space-y-4">
@@ -820,6 +942,17 @@
                 เพื่อให้แอปแจ้งเตือนคุณเมื่อถึงเวลาเปลี่ยนคาบเรียน กรุณากดปุ่มด้านล่างเพื่ออนุญาตให้ส่งการแจ้งเตือนมายังเครื่องของคุณ
               </p>
               
+              @if (notificationPermission() === 'denied') {
+              <div class="bg-rose-50 border border-rose-100 rounded-2xl p-3 flex gap-3">
+                <mat-icon class="text-rose-500 !w-4 !h-4 !text-[16px] mt-0.5">block</mat-icon>
+                <div class="space-y-1">
+                  <p class="text-[10px] font-bold text-rose-700">การแจ้งเตือนถูกปิดกั้นโดยระบบ</p>
+                  <p class="text-[10px] text-rose-600/80 leading-snug">
+                    คุณเคยปฏิเสธหรือปิดแอปนี้ไว้ในการตั้งค่า Android กรุณาไปที่ <span class="font-bold">Settings > Apps > ตารางเรียนอัจฉริยะ > Notifications</span> แล้วเลือก <span class="font-bold">"Allow"</span> เพื่อรับการแจ้งเตือน
+                  </p>
+                </div>
+              </div>
+              } @else {
               <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 flex gap-3">
                 <mat-icon class="text-indigo-500 !w-4 !h-4 !text-[16px] mt-0.5">info</mat-icon>
                 <div class="space-y-1">
@@ -837,6 +970,7 @@
                 <mat-icon class="animate-bounce">notifications</mat-icon>
                 <span>เปิดใช้งานการแจ้งเตือนทันที</span>
               </button>
+              }
             </div>
             } @else {
               <div class="space-y-4">
@@ -861,6 +995,76 @@
                 </button>
               </div>
             }
+          </div>
+        </section>
+        
+        <!-- Cloud Sync Data Section -->
+        <section>
+          <div class="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden relative">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-4 rounded-3xl flex items-center justify-center bg-blue-50 shadow-inner">
+                <mat-icon class="text-blue-600">cloud_sync</mat-icon>
+              </div>
+              <div class="flex-1">
+                <h3 class="text-sm font-black text-slate-800 leading-tight">สำรองข้อมูลตารางเรียน</h3>
+                <p class="text-[10px] text-slate-500 mt-1 leading-snug">
+                  บันทึกตารางเรียนของคุณไว้บนคลาวด์ ป้องกันข้อมูลหายเวลาตั้งค่าเครื่องใหม่
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+               <button (click)="forceBackupData()" class="flex-1 bg-white hover:bg-slate-50 text-blue-600 font-extrabold py-3 px-4 rounded-2xl border-2 border-blue-100 active:scale-95 transition-all justify-center flex items-center gap-2">
+                 <mat-icon class="!w-4 !h-4 !text-[16px]">cloud_upload</mat-icon>
+                 <span class="text-xs">สำรองข้อมูล</span>
+               </button>
+               <button (click)="restoreData()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 px-4 rounded-2xl active:scale-95 transition-all justify-center border-b-4 border-blue-800 flex items-center gap-2 shadow-sm">
+                 <mat-icon class="!w-4 !h-4 !text-[16px] animate-bounce">cloud_download</mat-icon>
+                 <span class="text-xs">กู้คืนข้อมูล</span>
+               </button>
+            </div>
+          </div>
+        </section>
+        
+        <!-- User Notification History -->
+        <section>
+          <div class="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden relative">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-4 rounded-3xl flex items-center justify-center bg-slate-50 shadow-inner">
+                <mat-icon class="text-slate-600">history</mat-icon>
+              </div>
+              <div class="flex-1 flex justify-between items-center">
+                <h3 class="text-sm font-black text-slate-800 leading-tight">ประวัติการแจ้งเตือน</h3>
+                <span class="text-[10px] text-slate-400 font-mono">{{ notification.auditLogs().length }} รายการล่าสุด</span>
+              </div>
+            </div>
+            
+            <div class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+              @if (notification.auditLogs().length === 0) {
+                <div class="text-center py-6 text-slate-400 text-xs">ยังไม่มีประวัติการเตือน</div>
+              } @else {
+                @for (audit of notification.auditLogs(); track audit.timestamp + audit.id) {
+                  @if (audit.state === 'delivered' || audit.state === 'missed') {
+                    <div class="flex items-start gap-3 pb-3 border-b border-slate-50 last:border-0 last:pb-0">
+                       <mat-icon class="!w-4 !h-4 !text-[16px] mt-0.5" 
+                           [class.text-emerald-500]="audit.state === 'delivered'"
+                           [class.text-rose-500]="audit.state === 'missed'">
+                          {{ audit.state === 'delivered' ? 'check_circle' : 'error' }}
+                       </mat-icon>
+                       <div class="flex-1">
+                          <p class="text-[11px] font-black text-slate-700">{{ audit.title }}</p>
+                          <p class="text-[10px] text-slate-500">{{ audit.details }}</p>
+                       </div>
+                       <span class="text-[9px] text-slate-400 whitespace-nowrap">{{ audit.timestamp | date:'shortTime' }}</span>
+                    </div>
+                  }
+                }
+                
+                @if (!hasDisplayableHistory(notification.auditLogs())) {
+                  <div class="text-center py-6 text-slate-400 text-xs">ยังไม่มีบันทึกการส่งแจ้งเตือนออกไป</div>
+                }
+              }
+            </div>
           </div>
         </section>
 
@@ -1540,6 +1744,193 @@
         </section>
       </div>
       }
+
+      <!-- Debug Tab -->
+      @if (activeTab() === 'debug') {
+      <div class="space-y-6 max-w-2xl mx-auto animate-tab-entrance animate-card-entrance">
+        <!-- Diagnostic Header -->
+        <div class="bg-slate-800 text-white rounded-[32px] p-6 shadow-xl relative overflow-hidden">
+          <div class="absolute -right-4 -top-8 text-slate-700/50">
+            <mat-icon class="!w-40 !h-40 !text-[160px]">bug_report</mat-icon>
+          </div>
+          <div class="relative z-10">
+             <div class="flex items-center gap-3 mb-2">
+                <mat-icon class="text-emerald-400">verified_user</mat-icon>
+                <h3 class="text-lg font-black tracking-tight">Developer Diagnostics</h3>
+             </div>
+             <p class="text-xs text-slate-300">
+               หน้านี้สำหรับใช้ตรวจสอบสถานะการทำงานระดับลึกของระบบต่างๆ (System Health & Logs)
+             </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- App Info -->
+          <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-200">
+             <div class="flex items-center gap-2 mb-4">
+               <mat-icon class="text-slate-400 !w-5 !h-5 !text-[20px]">info</mat-icon>
+               <h4 class="text-xs font-black text-slate-700 uppercase tracking-widest">App Information</h4>
+             </div>
+             <div class="space-y-3">
+               <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">App Version</span>
+                 <span class="text-xs font-bold font-mono text-slate-800">1.0.0</span>
+               </div>
+               <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">OTA Update Status</span>
+                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" [class.bg-emerald-100]="!updateAvailable()" [class.text-emerald-700]="!updateAvailable()" [class.bg-amber-100]="updateAvailable()" [class.text-amber-700]="updateAvailable()">{{ updateAvailable() ? 'Update Available' : 'Up to date' }}</span>
+               </div>
+               <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">Environment</span>
+                 <span class="text-xs font-bold font-mono text-slate-800">{{ isStandalone() ? 'Standalone (PWA)' : (isInAppBrowser() ? 'In-App Browser' : 'Standard Web') }}</span>
+               </div>
+               <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">Capacitor Native</span>
+                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" [class.bg-emerald-100]="isNativePlatform()" [class.text-emerald-700]="isNativePlatform()" [class.bg-slate-100]="!isNativePlatform()" [class.text-slate-700]="!isNativePlatform()">{{ isNativePlatform() ? 'Yes (Android/iOS)' : 'No (Web)' }}</span>
+               </div>
+             </div>
+          </div>
+
+          <!-- Notification Engine -->
+          <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-200">
+             <div class="flex items-center gap-2 mb-4">
+               <mat-icon class="text-indigo-400 !w-5 !h-5 !text-[20px]">notifications_active</mat-icon>
+               <h4 class="text-xs font-black text-slate-700 uppercase tracking-widest">Notification Engine</h4>
+             </div>
+             <div class="space-y-3">
+               <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">System Permission</span>
+                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" 
+                    [class.bg-emerald-100]="notificationPermission() === 'granted'" [class.text-emerald-700]="notificationPermission() === 'granted'"
+                    [class.bg-rose-100]="notificationPermission() === 'denied'" [class.text-rose-700]="notificationPermission() === 'denied'"
+                    [class.bg-amber-100]="notificationPermission() === 'default'" [class.text-amber-700]="notificationPermission() === 'default'"
+                    [class.bg-slate-100]="notificationPermission() === 'unsupported'" [class.text-slate-700]="notificationPermission() === 'unsupported'"
+                 >{{ notificationPermission() }}</span>
+               </div>
+               <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">Active State</span>
+                 <span class="text-xs font-bold font-mono text-slate-800">{{ store.isActive() ? 'Running' : 'Stopped' }}</span>
+               </div>
+               <div class="flex flex-col gap-1 border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">Exact Alarm Permission (Android 12+)</span>
+                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block w-max mt-1" 
+                    [class.bg-emerald-100]="notification.exactAlarmPermission() === 'granted'" [class.text-emerald-700]="notification.exactAlarmPermission() === 'granted'"
+                    [class.bg-slate-100]="notification.exactAlarmPermission() === 'unknown'" [class.text-slate-700]="notification.exactAlarmPermission() === 'unknown'"
+                 >{{ notification.exactAlarmPermission() }}</span>
+               </div>
+               <div class="flex flex-col gap-1 border-b border-slate-50 pb-2">
+                 <span class="text-xs font-bold text-slate-500">Native Alarms Pending</span>
+                 <span class="text-lg font-black text-indigo-600">{{ notification.scheduledCount() }}</span>
+                 
+                 @if (notification.pendingAlarms()?.notifications?.length) {
+                   <div class="mt-2 space-y-1 max-h-32 overflow-y-auto bg-slate-50 rounded-lg p-2 border border-slate-100">
+                     @for (alarm of notification.pendingAlarms()!.notifications; track alarm.id) {
+                       <div class="text-[10px] bg-white border border-slate-100 rounded px-2 py-1 flex flex-col">
+                         <span class="font-bold text-slate-700 truncate">{{ alarm.title }} (ID: {{ alarm.id }})</span>
+                         @if (alarm.schedule?.at) {
+                           <span class="text-slate-500">At: {{ alarm.schedule?.at | date:'medium' }}</span>
+                         }
+                         @if (alarm.schedule?.on) {
+                           <span class="text-slate-500">Every: W{{ alarm.schedule?.on?.weekday }} {{ alarm.schedule?.on?.hour }}:{{ alarm.schedule?.on?.minute }}</span>
+                         }
+                       </div>
+                     }
+                   </div>
+                 }
+               </div>
+               
+               <div class="flex flex-col gap-1 border-b border-slate-50 pb-2 mt-2">
+                 <span class="text-xs font-bold text-slate-500">Reliability Metrics</span>
+                 <div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg mt-1 border border-slate-100">
+                   <div class="flex flex-col text-center">
+                     <span class="text-[10px] text-slate-500 font-bold uppercase">Scheduled</span>
+                     <span class="text-sm font-black text-indigo-600">{{ notification.notificationsScheduled() }}</span>
+                   </div>
+                   <div class="flex flex-col text-center">
+                     <span class="text-[10px] text-slate-500 font-bold uppercase">Fired</span>
+                     <span class="text-sm font-black text-emerald-600">{{ notification.notificationsFired() }}</span>
+                   </div>
+                   <div class="flex flex-col text-center">
+                     <span class="text-[10px] text-slate-500 font-bold uppercase">Success %</span>
+                     <span class="text-sm font-black" [class.text-emerald-600]="(notification.notificationsFired() / (notification.notificationsScheduled() || 1)) >= 0.8" [class.text-amber-600]="(notification.notificationsFired() / (notification.notificationsScheduled() || 1)) < 0.8">
+                       {{ ((notification.notificationsFired() / (notification.notificationsScheduled() || 1)) * 100) | number:'1.0-0' }}%
+                     </span>
+                   </div>
+                 </div>
+               </div>
+
+               <button (click)="testNotification()" class="w-full text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg mt-2 transition-colors">
+                  Send Test Loopback Notification
+               </button>
+             </div>
+          </div>
+        </div>
+
+        <!-- Activity Logs -->
+        <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+           <div class="flex items-center justify-between mb-4">
+             <div class="flex items-center gap-2">
+               <mat-icon class="text-slate-400 !w-5 !h-5 !text-[20px]">monitor_heart</mat-icon>
+               <h4 class="text-xs font-black text-slate-700 uppercase tracking-widest">System & Activity Logs</h4>
+             </div>
+             <button (click)="notification.exportLogsAsJson()" class="flex items-center gap-1 text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 transition-colors">
+                <mat-icon class="!w-3 !h-3 !text-[12px]">download</mat-icon>
+                <span>Export</span>
+             </button>
+           </div>
+           
+           <div class="bg-slate-900 rounded-xl p-4 overflow-y-auto max-h-80 font-mono text-[10px] text-slate-300 space-y-2 relative">
+             @if (notification.logs().length === 0) {
+               <div class="text-center text-slate-500 py-8">No logs recorded yet.</div>
+             } @else {
+               @for (log of notification.logs(); track log.timestamp) {
+                 <div class="flex gap-2">
+                   <span class="text-slate-500 shrink-0">[{{ log.timestamp | date:'MM-dd HH:mm:ss' }}]</span>
+                   <span class="shrink-0" 
+                     [class.text-blue-400]="log.level === 'info'"
+                     [class.text-amber-400]="log.level === 'warn'"
+                     [class.text-rose-400]="log.level === 'error'">
+                     [{{ log.category }}]
+                   </span>
+                   <span class="text-slate-200">{{ log.message }}</span>
+                 </div>
+               }
+             }
+           </div>
+        </div>
+
+        <!-- Audit Trail -->
+        <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 overflow-hidden flex flex-col mt-4">
+           <div class="flex items-center justify-between mb-4">
+             <div class="flex items-center gap-2">
+               <mat-icon class="text-emerald-400 !w-5 !h-5 !text-[20px]">timeline</mat-icon>
+               <h4 class="text-xs font-black text-slate-700 uppercase tracking-widest">Notification Audit Trail</h4>
+             </div>
+           </div>
+           
+           <div class="space-y-3 max-h-80 overflow-y-auto">
+             @if (notification.auditLogs().length === 0) {
+               <div class="text-center text-slate-500 py-8 text-xs">No notifications tracked yet.</div>
+             } @else {
+               @for (audit of notification.auditLogs(); track audit.timestamp + audit.id) {
+                 <div class="border-l-2 pl-3 pb-1" 
+                    [class.border-emerald-400]="audit.state === 'delivered' || audit.state === 'clicked'"
+                    [class.border-indigo-400]="audit.state === 'created' || audit.state === 'scheduled'"
+                    [class.border-rose-400]="audit.state === 'missed'">
+                    <div class="flex justify-between items-center">
+                       <span class="text-[10px] font-bold text-slate-500 uppercase">{{ audit.state }}</span>
+                       <span class="text-[10px] text-slate-400">{{ audit.timestamp | date:'short' }}</span>
+                    </div>
+                    <p class="text-xs font-black text-slate-800">{{ audit.title }} <span class="text-[10px] text-slate-400 font-mono font-normal">#{{ audit.id }}</span></p>
+                    <p class="text-[10px] text-slate-600 mt-0.5">{{ audit.details }}</p>
+                 </div>
+               }
+             }
+           </div>
+        </div>
+
+      </div>
+      }
     </main>
 
     <!-- Edit Modal Overlay -->
@@ -1842,3 +2233,66 @@
     </nav>
   </div>
 </div>
+
+<!-- Restore Prompt Modal -->
+@if (showRestorePrompt()) {
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+  <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-8 text-center animate-in zoom-in-95 duration-300">
+    <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-blue-100">
+       <mat-icon class="!w-10 !h-10 !text-[40px]">cloud_sync</mat-icon>
+    </div>
+    
+    <h2 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">พบข้อมูลสำรอง</h2>
+    <p class="text-slate-500 mb-6 leading-relaxed text-sm">
+      พบข้อมูลตารางเรียนของคุณจากอุปกรณ์เดิม ต้องการดึงข้อมูลกลับมาใช้งานและตั้งแจ้งเตือนใหม่บนเครื่องนี้หรือไม่?
+    </p>
+    
+    <div class="flex flex-col gap-3">
+      <button (click)="acceptRestorePrompt()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 px-6 rounded-2xl active:scale-95 transition-all outline-none focus:ring-4 focus:ring-blue-500/20 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+         <mat-icon class="!w-5 !h-5 !text-[20px]">cloud_download</mat-icon>
+         กู้คืนข้อมูลเลย (อัตโนมัติ)
+      </button>
+      <button (click)="dismissRestore()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-4 px-6 rounded-2xl active:scale-95 transition-all outline-none">
+         เริ่มสร้างใหม่
+      </button>
+    </div>
+  </div>
+</div>
+}
+
+<!-- Onboarding / Notification Permission Modal -->
+@if (showOnboarding()) {
+<div
+  class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+>
+  <div
+    class="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-8 text-center animate-in zoom-in-95 duration-300"
+  >
+    <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-indigo-100">
+      <mat-icon class="!w-10 !h-10 !text-[40px]">notifications_active</mat-icon>
+    </div>
+    
+    <h2 class="text-2xl font-black text-slate-800 mb-3 tracking-tight">ไม่พลาดทุกคาบเรียน</h2>
+    
+    <p class="text-slate-500 mb-8 leading-relaxed text-sm">
+      แอปพลิเคชันต้องการสิทธิ์การแจ้งเตือนเพื่อรับการเตือนก่อนเริ่มคาบและเมื่อหมดเวลา<br/>
+      <span class="text-indigo-600 font-bold mt-2 inline-block bg-indigo-50 px-3 py-1 rounded-full">ทำงานได้แม้ไม่ได้เปิดแอป!</span>
+    </p>
+    
+    <div class="flex flex-col gap-3 w-full">
+      <button
+         (click)="acceptOnboarding()"
+         class="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all text-[15px]"
+      >
+        เปิดการแจ้งเตือน
+      </button>
+      <button
+         (click)="declineOnboarding()"
+         class="w-full bg-slate-50 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all text-sm"
+      >
+        ไว้คราวหลัง
+      </button>
+    </div>
+  </div>
+</div>
+}

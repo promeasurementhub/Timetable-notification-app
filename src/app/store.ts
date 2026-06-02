@@ -2,6 +2,7 @@ import { Injectable, signal, effect } from '@angular/core';
 import { ClassSession, AppSettings, ActiveNotification } from './models';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
+import { backupScheduleSettings, restoreScheduleSettings } from './firebase-client';
 
 @Injectable({ providedIn: 'root' })
 export class AppStore {
@@ -23,6 +24,7 @@ export class AppStore {
     this.loadState();
     
     // Save state on change
+    let cloudSyncTimeout: ReturnType<typeof setTimeout> | undefined;
     effect(() => {
       const currentSchedule = this.schedule();
       const currentSettings = this.settings();
@@ -30,6 +32,7 @@ export class AppStore {
       
       const saveAsync = async () => {
         try {
+          // Local storage is immediate
           if (Capacitor.isNativePlatform()) {
             await Preferences.set({ key: 'sched_schedule', value: JSON.stringify(currentSchedule) });
             await Preferences.set({ key: 'sched_settings', value: JSON.stringify(currentSettings) });
@@ -39,6 +42,13 @@ export class AppStore {
             localStorage.setItem('sched_settings', JSON.stringify(currentSettings));
             localStorage.setItem('sched_active', JSON.stringify(currentActive));
           }
+          
+          // Cloud backup is debounced to avoid quota/spamming on rapid changes
+          if (cloudSyncTimeout) clearTimeout(cloudSyncTimeout);
+          cloudSyncTimeout = setTimeout(async () => {
+             console.log('Debounced cloud sync executing...');
+             await backupScheduleSettings(currentSchedule, currentSettings, currentActive);
+          }, 5000); // 5 seconds debounce
         } catch (e) {
           console.warn('Failed to save state:', e);
         }
@@ -100,6 +110,19 @@ export class AppStore {
       if (storedActive !== null) this.isActive.set(JSON.parse(storedActive));
     } catch (e) {
       console.error('Failed to load state', e);
+    }
+  }
+
+  async restoreFromCloud() {
+    try {
+      const data = await restoreScheduleSettings();
+      if (data) {
+        if (data['schedule']) this.schedule.set(this.cleanUpSchedule(data['schedule']));
+        if (data['settings']) this.settings.set(data['settings']);
+        if (data['active'] !== undefined) this.isActive.set(data['active']);
+      }
+    } catch (e) {
+      console.warn('Failed to restore from cloud:', e);
     }
   }
 
