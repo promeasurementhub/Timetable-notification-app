@@ -15,36 +15,77 @@ if (typeof window !== 'undefined' && 'Notification' in window) {
   }
 }
 
+// Generate or retrieve anonymous user UID since we don't have user authentication
+const getOrCreateUserUid = (): string => {
+  if (typeof window === 'undefined') return 'unknown_user';
+  let uid = localStorage.getItem('app_user_uid');
+  if (!uid) {
+    uid = 'user_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    localStorage.setItem('app_user_uid', uid);
+  }
+  return uid;
+};
+
 export const requestFirebaseNotificationPermission = async () => {
   if (!messaging) return null;
-  
+  if (typeof window === 'undefined') return null;
+
   try {
+    // 1. ตรวจสอบว่าเคยได้ Token หรือยังจาก LocalStorage 
+    // เพื่อป้องกันการขอรับ Token ซ้ำและลดภาระของ Firebase
+    const cachedToken = localStorage.getItem('fcm_token');
+    if (cachedToken && Notification.permission === 'granted') {
+      console.log('Using cached FCM token.');
+      return cachedToken;
+    }
+
+    // 2. ขอสิทธิ์ Notification Permission
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      const token = await getToken(messaging);
+      
+      // 3. ลงทะเบียนและรับ Service Worker สำหรับจัดการ background Notification
+      const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { type: 'module' });
+
+      // 4. สมัครรับ Push Notification และได้ FCM Token
+      // เราใช้ serviceWorkerRegistration ที่แน่ใจว่าเชื่อมต่อถูกต้อง
+      const token = await getToken(messaging, {
+        serviceWorkerRegistration: swRegistration,
+      });
+
       if (token) {
-        console.log('FCM Token:', token);
-        // Save the token to Firestore so a backend could use it
-        await setDoc(doc(db, 'devices', token), {
+        console.log('FCM Token received:', token);
+        const uid = getOrCreateUserUid();
+        
+        // 5. บันทึก Token ลง Firestore ถือว่าจัดการเชื่อมกับ user uid (เป็น anonymous uuid)
+        // เพื่อให้ฝั่ง backend นำไปใช้ส่งข้อความตามเวลาได้
+        await setDoc(doc(db, 'users', uid, 'devices', token), {
           token,
           createdAt: new Date().toISOString(),
-          platform: 'web'
-        });
+          platform: 'web',
+          uid: uid
+        }, { merge: true });
+
+        // เก็บไว้ใน LocalStorage ว่าเคยได้ Token แล้ว
+        localStorage.setItem('fcm_token', token);
+
         return token;
+      } else {
+        console.warn('No registration token available. Request permission to generate one.');
       }
     }
     return null;
   } catch (error) {
-    console.error('An error occurred while retrieving token. ', error);
+    console.error('An error occurred while retrieving token: ', error);
     return null;
   }
 };
 
+// 6. เมื่อขณะที่มีการเปิดเว็บนี้ใน foreground, ทำการรับ notification ตรงนี้
 if (messaging) {
   onMessage(messaging, (payload) => {
-    console.log('Message received. ', payload);
-    // The service worker handles background notifications.
-    // We can also trigger local visual updates here if the app is foregrounded.
+    console.log('[Foreground] Message received. ', payload);
+    // แจ้งเตือนผู้ใช้ในเว็บเมื่อได้รับ push (แต่อยู่ในหน้าเว็บอยู่แล้ว)
+    // สำหรับ background, firebase-messaging-sw.js จะเป็นผู้ทำงาน
   });
 }
 

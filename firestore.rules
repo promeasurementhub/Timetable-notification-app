@@ -5,17 +5,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
-    match /devices/{deviceId} {
-      // Allow any device to register its token
-      allow create: if request.resource.data.keys().hasAll(['token', 'createdAt', 'platform'])
+    // Explicit security rules for new feature
+    match /users/{userId}/devices/{deviceId} {
+      allow create: if request.resource.data.keys().hasAll(['token', 'createdAt', 'platform', 'uid'])
                     && request.resource.data.token is string
                     && request.resource.data.token.size() > 0
-                    && request.resource.data.platform in ['web'];
+                    && request.resource.data.platform in ['web']
+                    && request.resource.data.uid == userId;
       
-      // Allow them to update their own token doc
-      allow update: if request.resource.data.token == resource.data.token;
-      
-      allow read: if false; // Only backend can read tokens to send push
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['token', 'createdAt', 'platform', 'uid'])
+                    || request.resource.data.token == resource.data.token;
+
+      allow read: if false;
     }
   }
 }

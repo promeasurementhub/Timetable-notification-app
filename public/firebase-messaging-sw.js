@@ -1,32 +1,33 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getMessaging, onBackgroundMessage } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-sw.js";
+
+// Initialize the Firebase app in the service worker by passing in the
+// messagingSenderId.
+// Note: This must be the identical configuration as your web app.
+const firebaseConfig = {
+  apiKey: "AIzaSyA1lzZpO5G-T9V-Kp_Tve31O8rIH0eldDk",
+  authDomain: "gen-lang-client-0556152514.firebaseapp.com",
+  projectId: "gen-lang-client-0556152514",
+  storageBucket: "gen-lang-client-0556152514.firebasestorage.app",
+  messagingSenderId: "227977579604",
+  appId: "1:227977579604:web:6b5018e15f6e9949bab1c1",
+};
+
 try {
-  importScripts(
-    "https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js",
-  );
-  importScripts(
-    "https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js",
-  );
+  const app = initializeApp(firebaseConfig);
+  const messaging = getMessaging(app);
 
-  firebase.initializeApp({
-    apiKey: "AIzaSyA1lzZpO5G-T9V-Kp_Tve31O8rIH0eldDk",
-    authDomain: "gen-lang-client-0556152514.firebaseapp.com",
-    projectId: "gen-lang-client-0556152514",
-    storageBucket: "gen-lang-client-0556152514.firebasestorage.app",
-    messagingSenderId: "227977579604",
-    appId: "1:227977579604:web:6b5018e15f6e9949bab1c1",
-  });
-
-  const messaging = firebase.messaging();
-
-  messaging.onBackgroundMessage((payload) => {
+  onBackgroundMessage(messaging, (payload) => {
     console.log(
       "[firebase-messaging-sw.js] Received background message ",
       payload,
     );
     const notificationTitle =
-      payload.notification?.title || payload.data?.title || "แจ้งเตือนใหม่";
+      payload.notification?.title || payload.data?.title || "แจ้งเตือนตารางเรียน";
     const notificationOptions = {
       body: payload.notification?.body || payload.data?.body,
-      icon: "/app-icon.svg",
+      icon: "/app-icon-192-v5.png",
+      badge: "/app-icon-192-v5.png",
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
