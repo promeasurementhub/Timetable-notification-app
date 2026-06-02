@@ -993,6 +993,33 @@
                   <mat-icon class="text-indigo-500">send</mat-icon>
                   <span>ทดสอบส่งข้อความแจ้งเตือนทันที</span>
                 </button>
+
+                <!-- Sandbox Background Test -->
+                <div class="mt-5 pt-5 border-t border-slate-100 space-y-3">
+                  <div class="flex items-center gap-2">
+                    <mat-icon class="text-indigo-500 !w-4 !h-4 !text-[16px]">phonelink_setup</mat-icon>
+                    <span class="text-[11px] font-black tracking-tight text-slate-700 uppercase">ระบบทดสอบเบื้องหลังเมื่อปิดแอป 100% (Background Sandbox)</span>
+                  </div>
+                  <p class="text-[10px] text-slate-500 leading-relaxed">
+                    ใช้ทดสอบเพื่อความชัวร์ว่าเมื่อสไลด์ปิดแอปทิ้งจากความจำล่าสุด (Recent Apps) หรือล็อกหน้าจอ iPad ค้างไว้ ระบบของเครื่องยังสามารถทำการปลุกแจ้งเตือนได้จริง
+                  </p>
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <button
+                      (click)="startAppKillSandboxTest(15)"
+                      class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold py-2.5 px-4 rounded-xl text-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 border border-indigo-100"
+                    >
+                      <mat-icon class="!w-4 !h-4 !text-[16px]">timer</mat-icon>
+                      <span>ตั้ง 15 วินาที</span>
+                    </button>
+                    <button
+                      (click)="startAppKillSandboxTest(30)"
+                      class="bg-slate-50 hover:bg-slate-100 text-slate-700 font-extrabold py-2.5 px-4 rounded-xl text-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 border border-slate-200"
+                    >
+                      <mat-icon class="!w-4 !h-4 !text-[16px]">snooze</mat-icon>
+                      <span>ตั้ง 30 วินาที</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             }
           </div>
@@ -1862,6 +1889,17 @@
                <button (click)="testNotification()" class="w-full text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg mt-2 transition-colors">
                   Send Test Loopback Notification
                </button>
+               
+               <div class="mt-2 pt-2 border-t border-slate-100 grid grid-cols-2 gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                 <button (click)="startAppKillSandboxTest(15)" class="w-full text-[9px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95">
+                   <mat-icon class="!w-3.5 !h-3.5 !text-[14px]">timer</mat-icon>
+                   <span>Sandbox (15s)</span>
+                 </button>
+                 <button (click)="startAppKillSandboxTest(30)" class="w-full text-[9px] font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 border border-slate-100 active:scale-95">
+                   <mat-icon class="!w-3.5 !h-3.5 !text-[14px]">snooze</mat-icon>
+                   <span>Sandbox (30s)</span>
+                 </button>
+               </div>
              </div>
           </div>
         </div>
@@ -2295,4 +2333,63 @@
     </div>
   </div>
 </div>
+}
+
+<!-- Background Sandbox Countdown Overlay/Modal -->
+@if (appKillSandboxActive()) {
+  <div class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[100] flex items-center justify-center p-6 text-white animate-fade-in animate-in duration-300">
+    <div class="bg-slate-800 rounded-[36px] w-full max-w-sm p-8 border border-white/10 text-center shadow-2xl relative overflow-hidden flex flex-col items-center">
+      <!-- Glow background effect -->
+      <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl"></div>
+      
+      <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/30 mb-6 relative">
+        <mat-icon class="!w-8 !h-8 !text-[32px] animate-pulse">timer</mat-icon>
+      </div>
+
+      <h3 class="text-xl font-black text-white tracking-tight">ระบบจำลองปิดแอปเพื่อทดสอบ</h3>
+      
+      <p class="text-xs text-slate-300 mt-2 mb-6">
+        จองแจ้งเตือนกับหน่วยความจำระบบปฏิบัติการ (OS Kernel) เรียบร้อย!
+      </p>
+
+      <!-- Countdown Circle -->
+      <div class="relative w-32 h-32 flex items-center justify-center mb-6">
+        <div class="absolute inset-0 rounded-full border-4 border-slate-700"></div>
+        <div class="absolute inset-0 rounded-full border-4 border-indigo-500 animate-spin" style="animation-duration: 3s;"></div>
+        <span class="text-4xl font-black font-mono text-indigo-400">{{ appKillSandboxCountdown() }}</span>
+      </div>
+
+      <!-- Action items -->
+      <div class="space-y-4 text-left bg-slate-900/60 p-5 rounded-2xl border border-white/5 w-full mb-6">
+        <div class="flex gap-3">
+          <span class="w-6 h-6 bg-red-600/20 text-red-400 rounded-full flex items-center justify-center font-bold text-xs shrink-0">1</span>
+          <p class="text-xs text-slate-200 mt-0.5 leading-relaxed">
+            <span class="font-bold text-red-400">ปัดแอปทิ้ง:</span> ให้กดหน้าโฮมและ <span class="font-bold underline">ปัดปิดแอปนี้ทิ้งทันที</span> จากหน้าต่างแอปล่าสุด (Recent Apps/Swipe Quit)
+          </p>
+        </div>
+        <div class="flex gap-3">
+          <span class="w-6 h-6 bg-emerald-600/20 text-emerald-400 rounded-full flex items-center justify-center font-bold text-xs shrink-0">2</span>
+          <p class="text-xs text-slate-200 mt-0.5 leading-relaxed">
+            <span class="font-bold text-emerald-400">ล็อกหน้าจอ:</span> กด Power ปิดจอ iPad/โทรศัพท์ของท่านเพื่อรอนอกแอป
+          </p>
+        </div>
+        <div class="flex gap-3">
+          <span class="w-6 h-6 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center font-bold text-xs shrink-0">3</span>
+          <p class="text-xs text-slate-300 mt-0.5 leading-relaxed">
+            ระบบปฏิบัติการของเครื่องจะปลุกแจ้งเตือนให้ด่วนเมื่อตัวนับเวลาเป็น 0!
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-3 w-full">
+        <button
+          (click)="cancelAppKillSandbox()"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 px-5 rounded-xl text-xs active:scale-95 transition-all outline-none"
+        >
+          ยกเลิกทดสอบ
+        </button>
+      </div>
+    </div>
+  </div>
 }

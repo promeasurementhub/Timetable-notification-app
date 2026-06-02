@@ -66,6 +66,9 @@ export class App implements OnInit {
   editingSession = signal<ClassSession | null>(null);
   updateAvailable = signal(false);
   isCheckingUpdate = signal(false);
+  appKillSandboxCountdown = signal<number>(0);
+  appKillSandboxActive = signal<boolean>(false);
+  appKillSandboxTimerId: ReturnType<typeof setInterval> | null = null;
   isInIframe = signal(typeof window !== 'undefined' && window.self !== window.top);
   isInAppBrowser = signal(false);
   isStandalone = signal(typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as { standalone?: boolean }).standalone === true));
@@ -1009,6 +1012,55 @@ export class App implements OnInit {
       }
     }
     this.notification.sendTestNotification(this.store.settings());
+  }
+
+  async startAppKillSandboxTest(seconds: number) {
+    if (this.notificationPermission() !== 'granted') {
+      const granted = await this.notification.requestPermission();
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        this.notificationPermission.set(Notification.permission);
+      }
+      if (!granted) {
+        alert('กรุณาอนุญาตการแจ้งเตือนก่อนทำการตรวจสอบระบบฆ่าแอป');
+        return;
+      }
+    }
+
+    // Call service to schedule in native OS (even after app close)
+    await this.notification.scheduleSandboxNotification(seconds);
+
+    // Initial countdown setup
+    this.appKillSandboxCountdown.set(seconds);
+    this.appKillSandboxActive.set(true);
+
+    if (this.appKillSandboxTimerId) {
+      clearInterval(this.appKillSandboxTimerId);
+    }
+
+    // Set countdown timer
+    this.appKillSandboxTimerId = setInterval(() => {
+      const current = this.appKillSandboxCountdown();
+      if (current <= 1) {
+        if (this.appKillSandboxTimerId) {
+          clearInterval(this.appKillSandboxTimerId);
+          this.appKillSandboxTimerId = null;
+        }
+        this.appKillSandboxActive.set(false);
+        this.appKillSandboxCountdown.set(0);
+      } else {
+        this.appKillSandboxCountdown.set(current - 1);
+      }
+    }, 1000);
+  }
+
+  cancelAppKillSandbox() {
+    if (this.appKillSandboxTimerId) {
+      clearInterval(this.appKillSandboxTimerId);
+      this.appKillSandboxTimerId = null;
+    }
+    this.appKillSandboxActive.set(false);
+    this.appKillSandboxCountdown.set(0);
+    this.notification.cancelSandboxNotification();
   }
 
   async checkForUpdates() {

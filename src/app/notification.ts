@@ -731,4 +731,69 @@ export class NotificationService {
       console.warn('Failed to schedule native Local Notifications:', err);
     }
   }
+
+  async scheduleSandboxNotification(seconds: number) {
+    const title = '🎉 สำเร็จการทำงานเบื้องหลัง 100%';
+    const body = `ระบบแจ้งเตือนทำงานสมบูรณ์แบบ! แม้คุณจะปัดปิดแอปไปแล้ว (${seconds} วินาทีที่แล้ว) ระบบ OS ของเครื่องยังปลุกแจ้งเตือนได้สำเร็จ`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocalNotifications.createChannel({
+          id: 'class-alerts',
+          name: 'แจ้งเตือนคาบเรียนด่วน',
+          description: 'แสดงป้ายเตือนลอยด้านบนขอบจอ (Heads-up Alert)',
+          importance: 5,
+          sound: 'default',
+          visibility: 1,
+          vibration: true
+        });
+
+        // Cancel previous sandbox if any
+        await LocalNotifications.cancel({ notifications: [{ id: 777777 }] }).catch((err) => {
+          console.debug('No prior sandbox to cancel', err);
+        });
+
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body,
+              id: 777777, // Specific ID for sandbox test
+              schedule: { at: new Date(Date.now() + seconds * 1000), allowWhileIdle: true },
+              sound: 'default',
+              channelId: 'class-alerts'
+            }
+          ]
+        });
+        
+        this.addLog('info', 'alarm', `Sandbox notification scheduled in ${seconds}s (ID: 777777). Now close app!`);
+      } catch (err) {
+        this.addLog('error', 'alarm', `Sandbox schedule error: ${err}`);
+      }
+    } else {
+      // Web browser timeout fallback
+      setTimeout(() => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(title, { body });
+          } catch {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(reg => reg.showNotification(title, { body }));
+            }
+          }
+        }
+      }, seconds * 1000);
+    }
+  }
+
+  async cancelSandboxNotification() {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocalNotifications.cancel({ notifications: [{ id: 777777 }] });
+        this.addLog('info', 'alarm', `Sandbox test cancelled.`);
+      } catch (err) {
+        console.debug('No active sandbox to cancel', err);
+      }
+    }
+  }
 }
