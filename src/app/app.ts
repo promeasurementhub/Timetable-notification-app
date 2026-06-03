@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,6 +11,8 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { environment } from '../environments/environment';
+import { auth, ADMIN_EMAIL, GlobalConfig } from './firebase-client';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 interface BackupData {
   schedule?: ClassSession[];
@@ -36,9 +38,27 @@ export class App implements OnInit {
   notification = inject(NotificationService);
   notificationPermission = signal<string>('default');
 
-  activeTab = signal<'home' | 'schedule' | 'calendar' | 'settings' | 'debug'>('home');
+  activeTab = signal<'home' | 'schedule' | 'calendar' | 'settings' | 'debug' | 'admin'>('home');
   isProcessing = signal(false);
   currentTime = signal<Date>(new Date());
+
+  // Admin Signals
+  adminBackendApiUrl = signal('');
+  adminBroadcastText = signal('');
+  adminMaintenanceMode = signal(false);
+  adminGithubRepo = signal('khaophan/Timetable-notification-app');
+  adminSubjectMappings = signal<Record<string, string>>({});
+  
+  newAdminMappingCode = signal('');
+  newAdminMappingName = signal('');
+
+  // Authentication Signals
+  adminUser = signal<User | null>(null);
+  isAdminLoggedIn = computed(() => {
+    const user = this.adminUser();
+    return user && user.email === ADMIN_EMAIL;
+  });
+
   
   readinessScore = computed(() => {
     let score = 100;
@@ -78,6 +98,7 @@ export class App implements OnInit {
   isNativePlatform = signal(Capacitor.isNativePlatform());
   swStatus = signal<'checking' | 'registered' | 'failed' | 'not_supported'>('checking');
   showOnboarding = signal(false);
+  showSandboxSuccessPopup = signal(false);
   
   preNotifyMinutes = computed(() => this.store.settings().preNotifyMinutes ?? 3);
   calendarMonths = computed(() => this.generateCalendar());
@@ -223,6 +244,26 @@ export class App implements OnInit {
   });
 
   constructor() {
+    // Watch for App Kill Test completion (via OS notification click)
+    effect(() => {
+      if (this.notification.sandboxSucceeded()) {
+        this.showSandboxSuccessPopup.set(true);
+        // Reset the signal for next test
+        this.notification.sandboxSucceeded.set(false);
+      }
+    });
+
+    effect(() => {
+      const g = this.store.globalConfig();
+      if (g) {
+        this.adminBackendApiUrl.set(g.backendApiUrl || '');
+        this.adminBroadcastText.set(g.broadcastText || '');
+        this.adminMaintenanceMode.set(!!g.maintenanceMode);
+        this.adminGithubRepo.set(g.githubRepo || 'khaophan/Timetable-notification-app');
+        this.adminSubjectMappings.set(g.subjectMappings || {});
+      }
+    });
+
     if (typeof window !== 'undefined') {
       setInterval(() => {
         this.currentTime.set(new Date());
@@ -742,6 +783,10 @@ export class App implements OnInit {
   async ngOnInit() {
     this.notification.startChecking();
     this.checkCloudBackupOnBoot();
+
+    onAuthStateChanged(auth, (user) => {
+      this.adminUser.set(user);
+    });
     
     await this.updateNotificationPermissionStatus();
 
@@ -828,7 +873,7 @@ export class App implements OnInit {
     await this.setPref('has_seen_onboarding', 'true');
   }
 
-  setTab(tab: 'home' | 'schedule' | 'settings' | 'calendar' | 'debug') {
+  setTab(tab: 'home' | 'schedule' | 'settings' | 'calendar' | 'debug' | 'admin') {
     this.activeTab.set(tab);
   }
 
@@ -1112,7 +1157,7 @@ export class App implements OnInit {
     }, 1000);
   }
 
-  cancelAppKillSandbox() {
+  cancelAppKillSandboxTest() {
     if (this.appKillSandboxTimerId) {
       clearInterval(this.appKillSandboxTimerId);
       this.appKillSandboxTimerId = null;
@@ -1162,6 +1207,126 @@ export class App implements OnInit {
         }
       });
     }
+  }
+
+  // Administrative Operations & Google Auth Controllers
+  async loginAsAdmin() {
+    this.isProcessing.set(true);
+    try {
+      const { signInWithGoogle } = await import('./firebase-client');
+      const user = await signInWithGoogle();
+      if (user) {
+        if (user.email === 'khaophan.po@gmail.com') {
+          this.adminUser.set(user);
+          this.setTab('admin');
+        } else {
+          const { logout } = await import('./firebase-client');
+          await logout();
+          this.adminUser.set(null);
+          alert('สิทธิ์ปฏิเสธการเข้าสู่ระบบ: อีเมลของคุณไม่ใช่ khaophan.po@gmail.com');
+        }
+      }
+    } catch (e) {
+      console.error('Login error:', e);
+      const err = e as Error;
+      alert('เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google: ' + (err.message || String(e)));
+    } finally {
+      this.isProcessing.set(false);
+    }
+  }
+
+  async logoutAdmin() {
+    this.isProcessing.set(true);
+    try {
+      const { logout } = await import('./firebase-client');
+      await logout();
+      this.adminUser.set(null);
+      this.setTab('home');
+    } catch (e) {
+      console.error('Logout error:', e);
+    } finally {
+      this.isProcessing.set(false);
+    }
+  }
+
+  async saveAdminGlobalSettings() {
+    this.isProcessing.set(true);
+    try {
+      const { saveGlobalConfig } = await import('./firebase-client');
+      const newConfig: GlobalConfig = {
+        backendApiUrl: this.adminBackendApiUrl().trim(),
+        broadcastText: this.adminBroadcastText().trim(),
+        maintenanceMode: this.adminMaintenanceMode(),
+        githubRepo: this.adminGithubRepo().trim(),
+        subjectMappings: this.adminSubjectMappings(),
+        updatedAt: new Date().toISOString()
+      };
+      await saveGlobalConfig(newConfig);
+      alert('อัปเดตข้อมูลการตั้งค่าแอดมินและซิงก์สู่มือถือผู้ใช้ทั่วโลกสำเร็จแล้ว! 🌐🚀');
+    } catch (e) {
+      console.error('Save config error:', e);
+      const err = e as Error;
+      alert('ไม่สามารถอัปเดตการทำงาน คาดว่ามีข้อผิดพลาดเกี่ยวกับการยืนยันตัวตนแอดมิน: ' + (err.message || String(e)));
+    } finally {
+      this.isProcessing.set(false);
+    }
+  }
+
+  saveAdminMapping() {
+    const code = this.newAdminMappingCode().trim().toUpperCase();
+    const name = this.newAdminMappingName().trim();
+    if (!code || !name) return;
+
+    const current = this.adminSubjectMappings();
+    this.adminSubjectMappings.set({ ...current, [code]: name });
+    this.newAdminMappingCode.set('');
+    this.newAdminMappingName.set('');
+  }
+
+  removeAdminMapping(code: string) {
+    const updated = { ...this.adminSubjectMappings() };
+    delete updated[code];
+    this.adminSubjectMappings.set(updated);
+  }
+
+  async importAdminMappings(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    const text = await file.text();
+    const lines = text.split(/\r?\n/);
+    
+    const current = this.adminSubjectMappings();
+    const updated = { ...current };
+    let importedCount = 0;
+    
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let matched = false;
+      if (line.includes('> |')) {
+        const [code, name] = line.split('> |');
+        updated[code.trim().toUpperCase()] = name.trim();
+        matched = true;
+      } else if (line.includes('|')) {
+        const [code, name] = line.split('|');
+        updated[code.trim().toUpperCase()] = name.trim();
+        matched = true;
+      } else if (line.includes('=')) {
+        const [code, name] = line.split('=');
+        updated[code.trim().toUpperCase()] = name.trim();
+        matched = true;
+      }
+      if (matched) importedCount++;
+    }
+    
+    if (importedCount > 0) {
+      this.adminSubjectMappings.set(updated);
+      alert(`นำเข้ารายวิชาแอดมินสำเร็จ ${importedCount} รายการ (โปรดกดบันทึกเพื่อซิงก์ข้อมูลไปมือถือครอบคลุมทั่วโลก)`);
+    } else {
+      alert('ไม่พบข้อมูลรูปแบบที่ใช้จับคู่รหัสได้ เกร็ดตัวอย่าง: ว30103 = วิทยาศาสตร์');
+    }
+    input.value = '';
   }
 }
 

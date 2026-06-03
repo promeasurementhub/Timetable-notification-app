@@ -79,6 +79,28 @@
   animation: ringGrowth 2.5s cubic-bezier(0.25, 0, 0, 1) infinite;
 }
 
+.animate-bounce-subtle {
+  animation: bounceSubtle 1.5s infinite;
+}
+
+@keyframes bounceSubtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Premium active tab highlight glow */
 .pulse-highlight {
   position: relative;

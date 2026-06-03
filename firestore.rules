@@ -1,22 +1,48 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper to check if signed-in user is Admin
+    function isAdmin() {
+      return request.auth != null 
+        && request.auth.token.email == 'khaophan.po@gmail.com' 
+        && request.auth.token.email_verified == true;
+    }
+
+    // Helper to validate a generic document ID
+    function isValidId(id) {
+       return id is string && id.size() <= 128;
+    }
+
+    // Default deny catch-all for Zero-Trust Firestore Security
     match /{document=**} {
       allow read, write: if false;
     }
-    
-    // Explicit security rules for new feature
-    match /users/{userId}/devices/{deviceId} {
-      allow create: if request.resource.data.keys().hasAll(['token', 'createdAt', 'platform', 'uid'])
-                    && request.resource.data.token is string
-                    && request.resource.data.token.size() > 0
-                    && request.resource.data.platform in ['web']
-                    && request.resource.data.uid == userId;
-      
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['token', 'createdAt', 'platform', 'uid'])
-                    || request.resource.data.token == resource.data.token;
 
-      allow read: if false;
+    // device registrations for FCM notification tokens
+    match /users/{userId}/devices/{deviceId} {
+      allow read: if isAdmin();
+      allow write: if isValidId(userId) && isValidId(deviceId) && (
+        request.resource.data.uid == userId && 
+        request.resource.data.token == deviceId
+      );
+    }
+
+    // Backups of timetable and options per student (anonymous UUID)
+    match /users/{userId}/backup/data {
+      allow read, write: if isValidId(userId);
+    }
+
+    // Diagnostics logs
+    match /users/{userId}/diagnostics/{logId} {
+      allow read: if isAdmin();
+      allow write: if isValidId(userId) && isValidId(logId);
+    }
+
+    // Global administrative settings and default custom mappings
+    match /global_settings/config {
+      allow read: if true; // Any device globally reads default configurations
+      allow write: if isAdmin(); // Only Admin khaophan.po@gmail.com can write/update
     }
   }
 }

@@ -1,10 +1,21 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+
+// Force prompt so users can switch accounts if they need to
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
+// Admin email identification
+export const ADMIN_EMAIL = 'khaophan.po@gmail.com';
 
 let messaging: ReturnType<typeof getMessaging> | null = null;
 if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -15,7 +26,68 @@ if (typeof window !== 'undefined' && 'Notification' in window) {
   }
 }
 
-// Generate or retrieve anonymous user UID since we don't have user authentication
+export interface GlobalConfig {
+  backendApiUrl: string;
+  subjectMappings: Record<string, string>;
+  githubRepo: string;
+  broadcastText: string;
+  maintenanceMode: boolean;
+  updatedAt: string;
+}
+
+// Google Login only
+export const signInWithGoogle = async (): Promise<User | null> => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (err) {
+    console.error('Failed to login with Google:', err);
+    throw err;
+  }
+};
+
+export const logout = async (): Promise<void> => {
+  await signOut(auth);
+};
+
+// Global Configuration admin controls
+export const getGlobalConfig = async (): Promise<GlobalConfig | null> => {
+  try {
+    const snap = await getDoc(doc(db, 'global_settings', 'config'));
+    if (snap.exists()) {
+      return snap.data() as GlobalConfig;
+    }
+  } catch (err) {
+    console.error('Failed to get global configs:', err);
+  }
+  return null;
+};
+
+export const saveGlobalConfig = async (newConfig: GlobalConfig): Promise<void> => {
+  try {
+    await setDoc(doc(db, 'global_settings', 'config'), {
+      ...newConfig,
+      updatedAt: new Date().toISOString()
+    });
+    console.log('Global configuration updated by Admin successfully.');
+  } catch (err) {
+    console.error('Failed to update global config:', err);
+    throw err;
+  }
+};
+
+export const subscribeToGlobalConfig = (callback: (config: GlobalConfig | null) => void) => {
+  return onSnapshot(doc(db, 'global_settings', 'config'), (snap) => {
+    if (snap.exists()) {
+      callback(snap.data() as GlobalConfig);
+    } else {
+      callback(null);
+    }
+  }, (err) => {
+    console.error('Error listening to global configurations:', err);
+  });
+};
+
 export const getOrCreateUserUid = (): string => {
   if (typeof window === 'undefined') return 'unknown_user';
   let uid = localStorage.getItem('app_user_uid');

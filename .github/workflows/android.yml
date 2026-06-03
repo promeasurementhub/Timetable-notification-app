@@ -81,15 +81,28 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-xxhdpi
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
-          # Place custom small icon file corresponding to standard configuration
+          # Premium Asset Generation (Professional Standard)
+          # We use @capacitor/assets to generate high-fidelity Android branding from the SVG master.
+          # This handles adaptive icons, density variations, and XML definitions correctly.
+          if [ -f "public/app-icon-v5.svg" ]; then
+            echo "🚀 Generating professional-grade Android assets from SVG master..."
+            # Tool expects specific structure or explicit flags
+            mkdir -p assets
+            cp public/app-icon-v5.svg assets/logo.svg
+            
+            # Generate ALL Android icons (Adaptive & Legacy) with precision scaling
+            npx @capacitor/assets generate --android --icon-source assets/logo.svg
+            
+            echo "✅ Android launcher icons generated with vector precision"
+          else
+            echo "⚠️  Warning: SVG master icon not found at public/app-icon-v5.svg"
+          fi
+
+          # Notification status icons (Legacy mapping if needed)
           if [ -f "public/app-icon-192-v5.png" ]; then
+            # We still ensure stat icons for notification bar persistence
             cp public/app-icon-192-v5.png android/app/src/main/res/drawable/ic_stat_icon_config_sample.png
-            cp public/app-icon-192-v5.png android/app/src/main/res/mipmap-mdpi/ic_stat_icon_config_sample.png
-            cp public/app-icon-192-v5.png android/app/src/main/res/mipmap-hdpi/ic_stat_icon_config_sample.png
-            cp public/app-icon-192-v5.png android/app/src/main/res/mipmap-xhdpi/ic_stat_icon_config_sample.png
-            cp public/app-icon-192-v5.png android/app/src/main/res/mipmap-xxhdpi/ic_stat_icon_config_sample.png
-            cp public/app-icon-192-v5.png android/app/src/main/res/mipmap-xxxhdpi/ic_stat_icon_config_sample.png
-            echo "✅ Small icon resources linked successfully"
+            echo "✅ Stat icons mapped for notification clarity"
           fi
 
           # Create placeholder valid audio file to satisfy Android raw resources compiler and prevent local notifications sound crashes
@@ -106,8 +119,8 @@ jobs:
           fi
 
           if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
-            sed -i 's|<\/manifest>|    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"\/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"\/>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"\/>\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"\/>\n    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"\/>\n<\/manifest>|' "$MANIFEST"
-            echo "✅ Background Notification & AI Permissions added"
+            sed -i 's|<\/manifest>|    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"\/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"\/>\n    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"\/>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"\/>\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"\/>\n    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"\/>\n<\/manifest>|' "$MANIFEST"
+            echo "✅ Background Notification, Alert Overlay & AI Permissions added"
           fi
 
       - name: Set up JDK 21

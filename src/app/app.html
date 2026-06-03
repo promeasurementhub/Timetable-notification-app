@@ -255,6 +255,19 @@
       <!-- Home Tab -->
       @if (activeTab() === 'home') {
       <div class="space-y-6 animate-tab-entrance animate-card-entrance">
+
+        <!-- Broadcast Message Banner from Admin -->
+        @if (store.globalConfig()?.broadcastText) {
+        <div class="bg-gradient-to-r from-rose-500 to-amber-500 rounded-[32px] p-5 text-white flex gap-4 items-center shadow-lg">
+          <div class="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/20 shadow-sm">
+            <mat-icon class="!w-6 !h-6 !text-[24px]">campaign</mat-icon>
+          </div>
+          <div>
+            <span class="text-[9px] font-black uppercase tracking-wider bg-white/15 px-2 py-0.5 rounded-full border border-white/15">ประกาศด่วนจากระบบ</span>
+            <p class="font-extrabold text-xs tracking-tight mt-1 leading-snug">{{ store.globalConfig()?.broadcastText }}</p>
+          </div>
+        </div>
+        }
       
         <!-- Smart Assistant Summary -->
         <div class="bg-indigo-50/50 rounded-[32px] p-5 border border-indigo-100 flex gap-4 items-center">
@@ -1536,239 +1549,138 @@
           </div>
         </section>
 
-        <section>
-          <div class="bg-slate-900 rounded-[32px] p-6 shadow-xl text-white overflow-hidden relative border border-slate-800">
-            <!-- Header -->
-            <div class="relative z-10 mb-5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
-                    <mat-icon class="text-indigo-400">psychology</mat-icon>
-                  </div>
-                  <div>
-                    <h3 class="text-xs font-black uppercase tracking-wider text-slate-400">ระบบ AI และ สถาปัตยกรรมมือถือ</h3>
-                    <h2 class="text-md font-bold text-white mt-0.5">การตั้งค่าสำหรับการแปลงเป็น APK / Play Store</h2>
-                  </div>
-                </div>
-                <span class="text-[10px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 label-pulse">
-                  <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  ระบบพร้อม 100%
-                </span>
-              </div>
-            </div>
-
-            <!-- Configurations form -->
-            <div class="relative z-10 space-y-4 pt-1 mb-5">
-              <!-- Backend Server URL Config -->
-              <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 space-y-2">
-                <div class="flex items-center justify-between">
-                  <div class="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                    <mat-icon class="text-indigo-400 !w-4 !h-4 !text-[16px]">dns</mat-icon>
-                    <span>ที่อยู่เซิร์ฟเวอร์หลังบ้าน (API Server URL)</span>
-                  </div>
-                  @if (isNativePlatform()) {
-                    <span class="text-[9px] font-bold text-indigo-400">โหมดระบบปิด (Android App)</span>
-                  }
-                </div>
-                <div class="flex gap-2">
-                  <input
-                    type="text"
-                    [value]="backendApiUrl()"
-                    (input)="backendApiUrl.set($any($event.target).value)"
-                    placeholder="e.g. https://your-server-domain.com"
-                    class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 font-mono text-indigo-300 placeholder:text-slate-600"
-                  />
-                  <button
-                    (click)="saveBackendApiUrl()"
-                    class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all text-white font-black text-xs px-4 py-2 rounded-xl border border-indigo-500 shadow"
-                  >
-                    บันทึก
-                  </button>
-                </div>
-                <p class="text-[9px] text-slate-400 leading-normal font-medium">
-                  💡 <b>ผู้ใช้งานทั่วไป:</b> แนะนำให้ใช้ตามค่าเริ่มต้น (ระบบจะเชื่อมต่อเซิร์ฟเวอร์คลาวด์อัตโนมัติ) เพื่อให้การสแกนตารางเรียนด้วย AI และการซิงค์ข้อมูลทำงานได้ 100% ไม่มีข้อผิดพลาด
-                </p>
-              </div>
-
-              <!-- Gemini API Key Config -->
-              <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 space-y-2">
-                <div class="flex items-center justify-between">
-                  <div class="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                    <mat-icon class="text-emerald-400 !w-4 !h-4 !text-[16px]">key</mat-icon>
-                    <span>คีย์ Gemini API ส่วนตัว (Gemini API Key - เสริม)</span>
-                  </div>
-                  <span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-black">Option</span>
-                </div>
-                <div class="flex gap-2">
-                  <input
-                    type="password"
-                    [value]="userGeminiKey()"
-                    (input)="userGeminiKey.set($any($event.target).value)"
-                    placeholder="ป้อน GEMINI_API_KEY ของคุณ..."
-                    class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono text-emerald-300 placeholder:text-slate-600"
-                  />
-                  <button
-                    (click)="saveGeminiKey()"
-                    class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all text-white font-black text-xs px-4 py-2 rounded-xl border border-emerald-500 shadow"
-                  >
-                    บันทึก
-                  </button>
-                </div>
-                <p class="text-[9px] text-slate-400 leading-normal font-medium">
-                  🔒 <b>ทำไมต้องใส่ข้อนี้?</b> หากคุณใส่คีย์นี้ แอปพลิเคชันบน Android / APK จะเรียกประมวลผลโมเดล Gemini โดยตรงจากฝั่งมือถือทันที โดยไม่จำเป็นต้องผ่านเซิร์ฟเวอร์ใดๆ ช่วยประหยัดค่าใช้จ่าย ปลอดภัย 100% สะดวกสไตล์เซิร์ฟเวอร์เลส
-                </p>
-              </div>
-
-              <!-- APK Export & Play Store publishing guide -->
-              <div class="bg-slate-950/75 border border-indigo-500/15 rounded-2xl p-4 space-y-3">
-                <div class="flex items-center gap-2 text-indigo-400">
-                  <mat-icon class="!w-4 !h-4 !text-[16px]">android</mat-icon>
-                  <span class="text-xs font-black uppercase tracking-wider">คู่มือการแปลงแอปเป็น APK & ลงระบบ Play Store</span>
-                </div>
-                
-                <p class="text-[10px] text-slate-300 leading-normal font-semibold text-justify">
-                  แอปตารางเรียนอัจฉริยะนี้ถูกออกแบบโครงสร้างโปรเจ็กต์โดยใช้ <b>Capacitor</b> ไว้ล่วงหน้าแล้ว ทำให้คุณสามารถ Export และแปลงเป็นแพ็คเกจ <code>.apk</code> หรือ <code>.aab</code> เพื่อส่งขึ้น Google Play Store ได้ทันที ผ่าน 3 ขั้นตอนดังนี้ครับ:
-                </p>
-
-                <div class="space-y-2 border-t border-slate-800/60 pt-2 text-[10px]">
-                  <div class="flex gap-2">
-                    <span class="font-extrabold text-indigo-400 shrink-0">ขั้นตอนที่ 1:</span>
-                    <span class="text-slate-300"><b>บิวต์ไฟล์เว็บไซต์ในโปรเจกต์</b><br>รันคำสั่ง <code>npm run build</code> เพื่อคอมไพล์โปรเจ็กต์ Angular ไว้ในโฟลเดอร์ <code>dist/app/browser</code></span>
-                  </div>
-                  <div class="flex gap-2">
-                    <span class="font-extrabold text-indigo-400 shrink-0">ขั้นตอนที่ 2:</span>
-                    <span class="text-slate-300"><b>ผูกเข้ากับ Android Platform (Capacitor Sync)</b><br>ทำได้ง่ายๆ โดยเปิดระบบ Terminal แล้วรันคำสั่ง <code>npx cap add android</code> และตามด้วย <code>npx cap sync</code> เพื่อซิงก์ข้อมูลแอปพลิเคชันล่าสุดเข้าไปยังโฟลเดอร์ฝั่งมือถือ</span>
-                  </div>
-                  <div class="flex gap-2">
-                    <span class="font-extrabold text-indigo-400 shrink-0">ขั้นตอนที่ 3:</span>
-                    <span class="text-slate-300"><b>สแกนออกเป็นไฟล์ APK / ส่งเซ็นสัญญา Google Play Console</b><br>เปิดคอมพิวเตอร์ด้วยโปรแกรม Android Studio และเรียกเปิดโฟลเดอร์ <code>android</code> จากนั้นคลิกเมนู <b>Build &gt; Build Bundle(s) / APK(s) &gt; Build APK</b> เพื่อสร้างไฟล์ APK ติดตั้งในเครื่อง หรือเลือก <b>Generate Signed Bundle</b> สำหรับส่งเข้า Google Play Console เพื่อขึ้นบน Google Play Store อย่างครอบคลุม 100%!</span>
-                  </div>
-                </div>
-
-                <div class="bg-indigo-500/5 rounded-xl border border-indigo-500/10 p-2.5 text-[9px] text-slate-300 leading-normal flex gap-2">
-                  <mat-icon class="text-indigo-400 shrink-0 !w-4 !h-4 !text-[16px]">info</mat-icon>
-                  <span><b>เสถียรภาพและคุณภาพ 100%:</b> ระบบตารางเรียนจะซิงก์ข้อมูล ขยายสิทธิเข้าเช็คคาบเรียนถัดไป จับสแนปรูปภาพตารางเรียนผ่านกล้อง และแจ้งเตือนด้วย Local Notifications อย่างสมบูรณ์แบบปลอดภัยที่สุด</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Deco circles -->
-            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl"></div>
-            <div class="absolute -left-10 -top-10 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl"></div>
+        <!-- Notification & Background App Kill Testing Section -->
+        <section class="space-y-4">
+          <div class="flex items-center gap-2 mb-1 px-1">
+            <span class="text-[10px] font-black text-rose-500 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md uppercase tracking-wider">โหมดทดสอบขั้นสูง</span>
+            <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest">การตรวจสอบความพร้อมของระบบแจ้งเตือน</h2>
           </div>
-        </section>
 
-        <section>
-          <div
-            class="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden"
-          >
-            <div class="flex items-center gap-3 mb-6">
-              <div class="p-2 bg-indigo-50 rounded-xl">
-                <mat-icon class="text-indigo-600">translate</mat-icon>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-800">จัดการชื่อวิชา</h3>
-                <p
-                  class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1"
-                >
-                  แปลรหัสวิชาเป็นชื่อไทย
-                </p>
-              </div>
-            </div>
-
-            <div class="flex gap-2 mb-6">
-              <div class="flex-1 space-y-2">
-                <input
-                  type="text"
-                  [value]="newMappingCode()"
-                  (input)="newMappingCode.set($any($event.target).value)"
-                  placeholder="รหัส ตย. ส31101"
-                  class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-300 focus:outline-none focus:border-indigo-400"
-                />
-                <input
-                  type="text"
-                  [value]="newMappingName()"
-                  (input)="newMappingName.set($any($event.target).value)"
-                  placeholder="ชื่อวิชา ตย. สังคมศึกษา"
-                  class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-300 focus:outline-none focus:border-indigo-400"
-                />
+          <div class="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100 divide-y divide-slate-100/50">
+            <!-- Instant Test -->
+            <div class="p-5 flex justify-between items-center bg-gradient-to-r from-white to-indigo-50/20">
+              <div class="flex-1">
+                <div class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                  <mat-icon class="!w-4 !h-4 !text-[16px] text-indigo-500">flash_on</mat-icon>
+                  ทดสอบแจ้งเตือนทันที
+                </div>
+                <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">กดปุ่มเพื่อยิง Pop-up และแจ้งเตือนเข้าระบบทันที</p>
               </div>
               <button
-                (click)="saveMapping()"
-                class="bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-2xl transition-all shadow-lg shadow-indigo-200 shrink-0 self-end active:scale-95"
+                (click)="testNotification()"
+                class="bg-indigo-600 hover:bg-indigo-700 active:scale-90 text-white font-black text-xs px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5"
               >
-                <mat-icon>add</mat-icon>
+                <mat-icon class="!w-4 !h-4 !text-[16px]">touch_app</mat-icon>
+                ทดสอบเลย
               </button>
             </div>
 
-            <div class="mb-6 pt-4 border-t border-slate-100">
-              <span
-                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3"
-              >
-                นำเข้าข้อมูลรายวิชาจากไฟล์
-              </span>
-              <div class="relative">
-                <input
-                  type="file"
-                  id="mappingFile"
-                  accept=".txt"
-                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  (change)="importMappings($event)"
-                />
-                <div
-                  class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center group transition-colors"
+            <!-- Delayed/Background Test -->
+            <div class="p-5 space-y-4">
+              <div class="flex justify-between items-start">
+                <div class="flex-1">
+                  <div class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                    <mat-icon class="!w-4 !h-4 !text-[16px] text-amber-500">timer</mat-icon>
+                    ทดสอบโหมดฆ่าแอป (Delayed Test)
+                  </div>
+                  <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-wide leading-relaxed pr-8">
+                    ทดสอบขั้นสูงสุด: เมื่อกดปุ่มแล้ว ให้คุณ <span class="text-rose-500">"ออกจากแอป"</span> และ <span class="text-rose-500">"ปัดปิดแอป (Kill App)"</span> ออกจากหน้าจอพื้นหลังทันที แล้วรอ 10 วินาทีเพื่อดูว่าการแจ้งเตือนยังเด้งขึ้นมาได้หรือไม่
+                  </p>
+                </div>
+                <button
+                  (click)="startAppKillSandboxTest(10)"
+                  [disabled]="appKillSandboxActive()"
+                  class="shrink-0 bg-slate-900 border border-slate-800 text-white font-black text-xs px-4 py-3 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center gap-2 hover:bg-black disabled:opacity-50"
                 >
-                  <mat-icon
-                    class="text-slate-400 group-hover:text-indigo-500 transition-colors mb-1"
-                    >upload_file</mat-icon
-                  >
-                  <p
-                    class="text-xs font-bold text-slate-600 group-hover:text-indigo-600 transition-colors"
-                  >
-                    คลิกหรือลากไฟล์ .txt นำเข้าข้อมูล
-                  </p>
-                  <p class="text-[10px] text-slate-400 mt-1">
-                    รูปแบบ: ว30103 = วิทยาศาสตร์
-                  </p>
+                  <mat-icon class="!w-4 !h-4 !text-[16px] text-amber-400">directions_run</mat-icon>
+                  เริ่มการทดสอบ
+                </button>
+              </div>
+
+              @if (appKillSandboxActive()) {
+              <div class="animate-bounce-subtle bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center gap-4">
+                <div class="relative flex items-center justify-center">
+                  <div class="absolute inset-0 bg-amber-200 animate-ping rounded-full opacity-30"></div>
+                  <div class="w-10 h-10 bg-amber-100 rounded-full border border-amber-200 flex items-center justify-center text-amber-600 font-black text-lg z-10">
+                    {{ appKillSandboxCountdown() }}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-amber-800">โปรดรีบปัดแอปทิ้งเดี๋ยวนี้!</div>
+                  <div class="text-[9px] font-bold text-amber-600/80 uppercase tracking-widest mt-0.5">ระบบจะปลุกเครื่องในอีกไม่กี่วินาที...</div>
+                </div>
+                <button (click)="cancelAppKillSandboxTest()" class="ml-auto text-[9px] font-black text-rose-500 uppercase tracking-tighter">ยกเลิก</button>
+              </div>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Google Sign-In for Admin Section -->
+        <section>
+          <div class="bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-[32px] p-6 shadow-xl text-white overflow-hidden relative border border-indigo-500/20">
+            <!-- Header -->
+            <div class="relative z-10 mb-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-white/10 rounded-xl border border-white/10">
+                  <mat-icon class="text-indigo-300">admin_panel_settings</mat-icon>
+                </div>
+                <div>
+                  <h3 class="text-xs font-black uppercase tracking-wider text-indigo-300/85">ระบบควบคุมส่วนแผงกลาง</h3>
+                  <h2 class="text-md font-bold text-white mt-0.5">ส่วนควบคุมดูแลระบบ (Admin)</h2>
                 </div>
               </div>
             </div>
 
-            <div
-              class="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar"
-            >
-              @for (item of subjectMappings() | keyvalue; track item.key) {
-              <div
-                class="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100"
-              >
-                <div>
-                  <div class="text-[10px] font-black text-indigo-500">
-                    {{ item.key }}
+            <!-- Body -->
+            <div class="relative z-10 space-y-3 pt-1">
+              @if (isAdminLoggedIn()) {
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                  <div class="flex items-center gap-3">
+                    <img class="w-10 h-10 rounded-full border-2 border-indigo-500/50" [src]="adminUser()?.photoURL || 'https://picsum.photos/seed/admin/200'" alt="Admin Profile" referrerpolicy="no-referrer">
+                    <div>
+                      <div class="text-[10px] font-black text-indigo-300 uppercase tracking-wide">เข้าสู่ระบบสำเร็จ</div>
+                      <div class="text-xs font-bold text-white/90 truncate max-w-[200px]">{{ adminUser()?.email }}</div>
+                    </div>
                   </div>
-                  <div class="text-xs font-bold text-slate-700">
-                    {{ item.value }}
+                  <div class="flex gap-2">
+                    <button
+                      (click)="setTab('admin')"
+                      class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 active:scale-95 transition-all text-white font-black text-xs py-2.5 rounded-xl shadow-lg border border-emerald-400/20"
+                    >
+                      เปิดหน้าจัดการระบบ (Control Panel)
+                    </button>
+                    <button
+                      (click)="logoutAdmin()"
+                      class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 font-extrabold text-xs px-3 py-2.5 rounded-xl border border-rose-500/25 active:scale-95 transition-all"
+                    >
+                      ลงชื่อออก
+                    </button>
                   </div>
                 </div>
-                <button
-                  (click)="removeMapping(item.key)"
-                  class="text-slate-300 hover:text-rose-500 transition-colors p-1"
-                >
-                  <mat-icon class="!w-5 !h-5 !text-[20px]"
-                    >delete_outline</mat-icon
+              } @else {
+                <div class="bg-indigo-950/40 border border-indigo-500/10 rounded-2xl p-4 space-y-3">
+                  <p class="text-[10px] text-justify text-indigo-200/80 leading-normal font-medium">
+                    🔒 <b>แอดมินเท่านั้น:</b> เข้าใช้งานระบบควบคุมเพื่อกำหนดที่อยู่เซิร์ฟเวอร์, จัดการฐานข้อมูลรายวิชา, และบรอดแคสต์ประกาศแบบเรียลไทม์ซิงก์เครื่องผู้ใช้ ทั่วโลก
+                  </p>
+                  <button
+                    (click)="loginAsAdmin()"
+                    [disabled]="isProcessing()"
+                    class="w-full bg-white hover:bg-slate-50 text-slate-900 font-black text-xs py-3 px-4 rounded-xl shadow-md border border-slate-100 flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
                   >
-                </button>
-              </div>
-              } @empty {
-              <div class="text-center py-8">
-                <mat-icon class="text-slate-200 !w-12 !h-12 !text-[48px] mb-2"
-                  >auto_stories</mat-icon
-                >
-                <p class="text-[10px] font-bold text-slate-400 italic">
-                  ยังไม่มีข้อมูลการแปลรหัสวิชา
-                </p>
-              </div>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                    </svg>
+                    ลงชื่อเข้าใช้ด้วย Google (แอดมินหลัก)
+                  </button>
+                </div>
               }
             </div>
+            <!-- Deco circles -->
+            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl text-indigo-500/10 hover:text-indigo-500/10"></div>
           </div>
         </section>
 
@@ -2074,6 +1986,190 @@
            </div>
         </div>
 
+      </div>
+      }
+      @if (activeTab() === 'admin') {
+      <div id="adminTab" class="animate-fade-in space-y-6 pb-24">
+        <!-- Header banner -->
+        <header class="flex justify-between items-center mb-4">
+          <div>
+            <span class="text-[10px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full label-pulse inline-block mb-1.5">
+              ระบบซิงค์เรียลไทม์พร้อมทำงานทั่วโลก 🌟
+            </span>
+            <h1 class="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+              <mat-icon class="text-rose-500 !w-7 !h-7 !text-[28px]">admin_panel_settings</mat-icon>
+              <span>ส่วนตั้งค่าผู้ดูลผู้ใช้งานกลาง</span>
+            </h1>
+          </div>
+          <button
+            (click)="setTab('settings')"
+            class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold text-xs px-3.5 py-2 rounded-full border border-slate-200 transition-colors"
+          >
+            <mat-icon class="!w-4 !h-4 !text-[16px]">arrow_back</mat-icon>
+            ย้อนกลับ
+          </button>
+        </header>
+
+        <!-- Admin user bar -->
+        <div class="bg-indigo-950 text-white rounded-3xl p-5 border border-indigo-800 shadow-lg flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img class="w-12 h-12 rounded-full border-2 border-indigo-400" [src]="adminUser()?.photoURL || 'https://picsum.photos/seed/admin/200'" alt="Admin Profile" referrerpolicy="no-referrer">
+            <div>
+              <div class="text-[10px] text-indigo-300 font-black uppercase tracking-wider">แอดมินที่ได้รับอนุญาต</div>
+              <div class="text-xs font-bold text-white truncate max-w-[210px]">{{ adminUser()?.email }}</div>
+            </div>
+          </div>
+          <button
+            (click)="logoutAdmin()"
+            class="bg-indigo-900 hover:bg-indigo-800 border border-indigo-700 font-extrabold text-[10px] px-3 py-1.5 rounded-xl active:scale-95 transition-all text-indigo-200"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+
+        <!-- Global Save actions -->
+        <div class="bg-white rounded-3xl p-5 shadow border border-slate-100 flex items-center justify-between gap-3">
+          <div class="shrink-1">
+            <h3 class="text-xs font-bold text-slate-800">อัปเดตระบบสู่ผู้ใช้อัตโนมัติ</h3>
+            <p class="text-[9px] font-semibold text-slate-400 mt-0.5">การคลิกบันทึกตรงนี้จะอัดฉีด API เซิร์ฟเวอร์และพาร์ทการแปลรายวิชาส่งไปยังทุกเครื่องที่ใช้งานตารางเรียนนี้ทั่วโลกทันที!</p>
+          </div>
+          <button
+            (click)="saveAdminGlobalSettings()"
+            [disabled]="isProcessing() || !isAdminLoggedIn()"
+            class="shrink-0 bg-gradient-to-r from-rose-500 to-indigo-600 hover:opacity-95 active:scale-95 text-white font-extrabold text-xs py-3 px-5 rounded-2xl shadow-lg border border-rose-400/20 flex items-center gap-1.5 transition-all disabled:opacity-50"
+          >
+            <mat-icon class="!inline-block mr-1 align-middle">sync</mat-icon>
+            ซิงก์ทั่วโลก
+          </button>
+        </div>
+
+        <!-- Section 1: Backend & Maintenance config -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- API server URL -->
+          <div class="bg-white rounded-[32px] p-6 shadow-md border border-slate-100 space-y-4">
+            <div class="flex items-center gap-2.5">
+              <div class="p-1.5 bg-indigo-50 rounded-xl text-indigo-600">
+                <mat-icon class="!w-5 !h-5 !text-[20px]">dns</mat-icon>
+              </div>
+              <span class="text-xs font-black uppercase tracking-wider text-slate-500">เซิร์ฟเวอร์ AI หลังบ้าน (API URL)</span>
+            </div>
+            
+            <div class="space-y-1.5">
+              <input
+                type="text"
+                [value]="adminBackendApiUrl()"
+                (input)="adminBackendApiUrl.set($any($event.target).value)"
+                placeholder="e.g. https://your-server-domain.com"
+                class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-xs focus:outline-none focus:border-indigo-400 font-mono text-indigo-600 placeholder:text-slate-300"
+              />
+              <p class="text-[9px] text-slate-400 font-semibold leading-normal">
+                🔗 เป็น URL สำหรับเชื่อมไปประมวลผลโมเดลสแกนตารางเรียนด้วยรูปภาพผ่านคลาวด์ แอดมินสามารถอัปเดตเพื่อย้ายเซิร์ฟเวอร์ได้โดยไม่มีผลกระทบต่อเครื่องผู้ใช้
+              </p>
+            </div>
+          </div>
+
+          <!-- Announcement Board config -->
+          <div class="bg-white rounded-[32px] p-6 shadow-md border border-slate-100 space-y-4">
+            <div class="flex items-center gap-2.5">
+              <div class="p-1.5 bg-amber-50 rounded-xl text-amber-600">
+                <mat-icon class="!w-5 !h-5 !text-[20px]">campaign</mat-icon>
+              </div>
+              <span class="text-xs font-black uppercase tracking-wider text-slate-500">บรอดแคสต์ประกาศแบบเรียลไทม์ (Broadcast Alert)</span>
+            </div>
+            
+            <div class="space-y-1.5">
+              <input
+                type="text"
+                [value]="adminBroadcastText()"
+                (input)="adminBroadcastText.set($any($event.target).value)"
+                placeholder="พิมพ์ข้อความประกาศความคืบหน้า..."
+                class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-xs focus:outline-none focus:border-amber-400 font-bold text-slate-700 placeholder:text-slate-300"
+              />
+              <p class="text-[9px] text-slate-400 font-semibold leading-normal">
+                📢 ข้อความนี้จะปรากฏเป็นแบนเนอร์แจ้งเตือนแบบพินพิเศษอยู่ที่ด้านบนสุดของหน้าแดชบอร์ดหลักบนอุปกรณ์ของผู้ใช้ทุกคนทันที! (เว้นว่างไว้เพื่อปิดแบนเนอร์)
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: Subject Maps -->
+        <section class="bg-white rounded-[32px] p-6 shadow-md border border-slate-100 space-y-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-indigo-50 rounded-xl text-indigo-600">
+                <mat-icon class="!w-5 !h-5 !text-[20px]">translate</mat-icon>
+              </div>
+              <div>
+                <h3 class="text-xs font-black uppercase tracking-wider text-slate-400">ฐานข้อมูลรหัสวิชาหลัก</h3>
+                <h2 class="text-sm font-bold text-slate-800">จัดการข้อมูลและแปลชื่อรายวิชาเพื่อผู้ใช้สากล</h2>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <div class="flex-1 space-y-2">
+              <input
+                type="text"
+                [value]="newAdminMappingCode()"
+                (input)="newAdminMappingCode.set($any($event.target).value)"
+                placeholder="รหัส ตย. ส31101"
+                class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-300 focus:outline-none focus:border-indigo-400"
+              />
+              <input
+                type="text"
+                [value]="newAdminMappingName()"
+                (input)="newAdminMappingName.set($any($event.target).value)"
+                placeholder="ชื่อวิชา ตย. สังคมศึกษา"
+                class="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-300 focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+            <button
+              (click)="saveAdminMapping()"
+              class="bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-2xl transition-all shadow-lg shadow-indigo-100 shrink-0 self-end active:scale-95"
+            >
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100">
+            <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">นำเข้าไฟล์อภิธานศัพท์วิชาเพื่อซิงค์ทั่วโลก (.txt Mappings)</span>
+            <div class="relative">
+              <input
+                type="file"
+                accept=".txt"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                (change)="importAdminMappings($event)"
+              />
+              <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-100 hover:border-indigo-200 transition-colors">
+                <mat-icon class="text-slate-400 mb-1">upload_file</mat-icon>
+                <p class="text-xs font-bold text-slate-600">ลากวางไฟล์ที่นี่เพื่อระเบิดอิมพอร์ตด่วน</p>
+                <p class="text-[9px] text-slate-400 mt-1">อัปโหลดไฟล์ที่มีโครงสร้างจับคู่คู่วัฏจักร เช่น ว30103 = วิทยาศาสตร์</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2 max-h-56 overflow-y-auto pr-2 custom-scrollbar border-t border-slate-100 pt-3">
+            @for (item of adminSubjectMappings() | keyvalue; track item.key) {
+            <div class="flex items-center justify-between bg-slate-50 rounded-2xl p-3 border border-slate-100">
+              <div>
+                <div class="text-[9px] font-black text-indigo-500">{{ item.key }}</div>
+                <div class="text-xs font-bold text-slate-700">{{ item.value }}</div>
+              </div>
+              <button
+                (click)="removeAdminMapping(item.key)"
+                class="text-slate-300 hover:text-rose-500 transition-colors p-1"
+              >
+                <mat-icon class="!w-4 !h-4 !text-[16px]">delete_outline</mat-icon>
+              </button>
+            </div>
+            } @empty {
+            <div class="text-center py-6">
+              <mat-icon class="text-slate-200 !w-8 !h-8 !text-[32px] mb-1">auto_stories</mat-icon>
+              <p class="text-[9px] font-bold text-slate-400 italic">ตารางอภิธานศัพท์แอดมินว่างเปล่า</p>
+            </div>
+            }
+          </div>
+        </section>
       </div>
       }
     </main>
@@ -2709,12 +2805,40 @@
 
       <div class="flex gap-3 w-full shrink-0">
         <button
-          (click)="cancelAppKillSandbox()"
+          (click)="cancelAppKillSandboxTest()"
           class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3.5 px-5 rounded-2xl text-xs active:scale-95 transition-all outline-none border border-white/5"
         >
           ปิดหน้าต่างทดสอบ
         </button>
       </div>
+    </div>
+  </div>
+}
+
+@if (showSandboxSuccessPopup()) {
+  <div class="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md animate-fade-in">
+    <div class="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden relative p-8 text-center space-y-6">
+      <div class="absolute -top-12 -left-12 w-40 h-40 bg-emerald-100 rounded-full blur-3xl opacity-50"></div>
+      <div class="absolute -bottom-12 -right-12 w-40 h-40 bg-indigo-100 rounded-full blur-3xl opacity-50"></div>
+
+      <div class="relative w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-emerald-200">
+        <mat-icon class="!w-12 !h-12 !text-[48px] text-white">verified</mat-icon>
+        <div class="absolute inset-0 rounded-full border-4 border-white/20 animate-ping"></div>
+      </div>
+
+      <div class="space-y-2">
+        <h3 class="text-2xl font-black text-slate-800 tracking-tight">ระบบทำงาน 100%!</h3>
+        <p class="text-sm font-medium text-slate-500 leading-relaxed px-4">
+          การทดสอบสมบูรณ์แบบ เครื่องของคุณรันพื้นหลังได้เสถียรมาก แม้ปัดแอปทิ้งแจ้งเตือนก็ยังทำงานได้และปลุกแอปขึ้นมาแสดงผลได้สำเร็จ
+        </p>
+      </div>
+
+      <button 
+        (click)="showSandboxSuccessPopup.set(false)"
+        class="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all text-sm tracking-widest uppercase"
+      >
+        รับทราบและปิด
+      </button>
     </div>
   </div>
 }

@@ -6,10 +6,12 @@ import { environment } from '../environments/environment';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { GoogleGenAI, Type } from '@google/genai';
+import { AppStore } from './store';
 
 @Injectable({ providedIn: 'root' })
 export class GeminiService {
   private http = inject(HttpClient);
+  private store = inject(AppStore);
 
   private async getPref(key: string, fallback = ''): Promise<string> {
     if (Capacitor.isNativePlatform()) {
@@ -102,7 +104,7 @@ export class GeminiService {
         defaultApiUrl = 'https://ais-pre-5ce7x4ii37m5xmqzzudf4v-123885007893.asia-southeast1.run.app';
       }
       
-      const apiBaseUrl = (savedBackendUrl || (environment as { API_URL?: string }).API_URL || defaultApiUrl).replace(/\/$/, '');
+      const apiBaseUrl = (savedBackendUrl || this.store.globalConfig()?.backendApiUrl || (environment as { API_URL?: string }).API_URL || defaultApiUrl).replace(/\/$/, '');
       
       console.log(`[GeminiService] Directing schedule parse request to API host: ${apiBaseUrl}`);
       

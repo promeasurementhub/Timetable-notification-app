@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "DeviceToken": {
+      "title": "DeviceToken",
+      "description": "FCM Device Token for background push notifications",
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "token",
+        "createdAt",
+        "platform",
+        "uid"
+      ]
+    },
+    "BackupData": {
+      "title": "BackupData",
+      "description": "JSON payload backup for student timetable and custom preferences",
+      "type": "object",
+      "properties": {
+        "schedule": {
+          "type": "array"
+        },
+        "settings": {
+          "type": "object"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schedule",
+        "settings",
+        "active",
+        "updatedAt"
+      ]
+    },
+    "DiagnosticLog": {
+      "title": "DiagnosticLog",
+      "description": "Diagnostic logger results upload",
+      "type": "object",
+      "properties": {
+        "logs": {
+          "type": "array"
+        },
+        "uploadedAt": {
+          "type": "string"
+        },
+        "userAgent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "logs",
+        "uploadedAt",
+        "userAgent"
+      ]
+    },
+    "GlobalConfig": {
+      "title": "GlobalConfig",
+      "description": "Global settings and remote admin control",
+      "type": "object",
+      "properties": {
+        "backendApiUrl": {
+          "type": "string"
+        },
+        "subjectMappings": {
+          "type": "object"
+        },
+        "githubRepo": {
+          "type": "string"
+        },
+        "broadcastText": {
+          "type": "string"
+        },
+        "maintenanceMode": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "backendApiUrl",
+        "subjectMappings",
+        "githubRepo",
+        "broadcastText",
+        "maintenanceMode",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "users/{userId}/devices/{deviceId}": {
+      "schema": "DeviceToken",
+      "description": "Notification tokens mapping"
+    },
+    "users/{userId}/backup/data": {
+      "schema": "BackupData",
+      "description": "UserData cloud backups"
+    },
+    "users/{userId}/diagnostics/{logId}": {
+      "schema": "DiagnosticLog",
+      "description": "Troubleshoot logs"
+    },
+    "global_settings/config": {
+      "schema": "GlobalConfig",
+      "description": "Global configs managed by admin khaophan.po@gmail.com"
+    }
+  }
+}

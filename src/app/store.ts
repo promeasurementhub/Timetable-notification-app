@@ -2,7 +2,7 @@ import { Injectable, signal, effect } from '@angular/core';
 import { ClassSession, AppSettings, ActiveNotification } from './models';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
-import { backupScheduleSettings, restoreScheduleSettings } from './firebase-client';
+import { backupScheduleSettings, restoreScheduleSettings, subscribeToGlobalConfig, GlobalConfig } from './firebase-client';
 
 @Injectable({ providedIn: 'root' })
 export class AppStore {
@@ -19,9 +19,30 @@ export class AppStore {
   });
   readonly isActive = signal<boolean>(true);
   readonly activeNotification = signal<ActiveNotification | null>(null);
+  readonly globalConfig = signal<GlobalConfig | null>(null);
 
   constructor() {
     this.loadState();
+
+    if (typeof window !== 'undefined') {
+      subscribeToGlobalConfig((config) => {
+        if (config) {
+          console.log('[AppStore] Received global config update from Admin:', config);
+          this.globalConfig.set(config);
+          
+          if (config.subjectMappings) {
+            try {
+              const localSaved = localStorage.getItem('subject_mappings') || '{}';
+              const localMap = JSON.parse(localSaved);
+              const merged = { ...localMap, ...config.subjectMappings };
+              localStorage.setItem('subject_mappings', JSON.stringify(merged));
+            } catch (e) {
+              console.warn('[AppStore] Merging admin subject mappings failed:', e);
+            }
+          }
+        }
+      });
+    }
     
     // Save state on change
     let cloudSyncTimeout: ReturnType<typeof setTimeout> | undefined;

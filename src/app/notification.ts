@@ -43,7 +43,8 @@ export class NotificationService {
   nextAlarm = signal<{title: string, time: Date, subjectName: string} | null>(null);
   lastCheckedTime = signal<Date | null>(null);
   scheduleIntegrityScore = signal<number>(100);
-
+  sandboxSucceeded = signal<boolean>(false);
+  
   constructor() {
     this.loadLogs();
     
@@ -83,6 +84,11 @@ export class NotificationService {
       LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
         this.addLog('info', 'notification', `User interacted with alarm: ${action.actionId}`);
         this.addAudit(action.notification.id?.toString() || 'unknown', action.notification.title || 'Unknown', 'clicked', `Action: ${action.actionId}`);
+        
+        // Handle Sandbox Test Success
+        if (action.notification.id === 777777) {
+          this.sandboxSucceeded.set(true);
+        }
       });
     }
   }
