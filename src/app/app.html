@@ -122,7 +122,7 @@
         (keydown.enter)="store.activeNotification.set(null)"
         role="button"
         tabindex="0"
-        class="bg-white/95 backdrop-blur-xl rounded-[28px] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/20 flex items-start gap-4 active:scale-95 transition-transform"
+        class="bg-white/95 rounded-[28px] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/20 flex items-start gap-4 active:scale-95 transition-transform"
       >
         <div
           class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
@@ -322,7 +322,7 @@
            
            <!-- Recovery Button explicitly shown if something is off or missing but we are supposed to have alarms -->
            @if (notification.scheduleIntegrityScore() < 100) {
-             <div class="relative z-10 mt-2 bg-slate-800/80 backdrop-blur-sm rounded-xl p-3 border border-amber-500/30 flex items-center justify-between">
+             <div class="relative z-10 mt-2 bg-slate-800/80 rounded-xl p-3 border border-amber-500/30 flex items-center justify-between">
                 <div>
                    <p class="text-[10px] font-bold text-amber-400">ระบบฟื้นฟูอัตโนมัติทำงานแล้ว</p>
                    <p class="text-[9px] text-slate-400">พบตารางเรียนในเครื่อง แต่ขาดการแจ้งเตือนในระบบ (ดำเนินการซ่อมแซมแล้ว)</p>
@@ -337,7 +337,7 @@
         @if (deferredPrompt()) {
         <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-[32px] p-6 text-white shadow-xl shadow-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-4 border-indigo-900">
           <div class="flex items-start gap-4">
-            <div class="p-3 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-inner">
+            <div class="p-3 bg-white/10 rounded-2xl flex items-center justify-center shadow-inner">
               <mat-icon class="text-white !w-6 !h-6 !text-[24px]">install_mobile</mat-icon>
             </div>
             <div>
@@ -2307,7 +2307,7 @@
     <!-- Edit Modal Overlay -->
     @if (editingSession()) {
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
     >
       <div
         class="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]"
@@ -2435,7 +2435,7 @@
     <!-- Holiday Editor Modal Overlay -->
     @if (showHolidayEditor()) {
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
     >
       <div
         class="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col"
@@ -2509,7 +2509,7 @@
     <!-- Reset Confirmation Modal Overlay -->
     @if (showResetConfirm()) {
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
     >
       <div
         class="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col"
@@ -2607,7 +2607,7 @@
 
 <!-- Restore Prompt Modal -->
 @if (showRestorePrompt()) {
-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
   <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-8 text-center animate-in zoom-in-95 duration-300">
     <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-blue-100">
        <mat-icon class="!w-10 !h-10 !text-[40px]">cloud_sync</mat-icon>
@@ -2634,7 +2634,7 @@
 <!-- Onboarding / Notification Permission Modal -->
 @if (showOnboarding()) {
 <div
-  class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+  class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"
 >
   <div
     class="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-8 text-center animate-in zoom-in-95 duration-300"
@@ -2670,7 +2670,7 @@
 
 <!-- Background Sandbox Countdown Overlay/Modal -->
 @if (appKillSandboxActive()) {
-  <div class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 text-white animate-fade-in animate-in duration-300">
+  <div class="fixed inset-0 bg-slate-900/95 z-[100] flex items-center justify-center p-4 text-white animate-fade-in animate-in duration-300">
     <div class="bg-slate-800 rounded-[36px] w-full max-w-lg p-6 md:p-8 border border-white/10 text-center shadow-2xl relative overflow-hidden flex flex-col items-center max-h-[90vh]">
       <!-- Glow background effect -->
       <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl"></div>
@@ -2946,7 +2946,7 @@
 }
 
 @if (showSandboxSuccessPopup()) {
-  <div class="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md animate-fade-in">
+  <div class="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 animate-fade-in">
     <div class="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden relative p-8 text-center space-y-6">
       <div class="absolute -top-12 -left-12 w-40 h-40 bg-emerald-100 rounded-full blur-3xl opacity-50"></div>
       <div class="absolute -bottom-12 -right-12 w-40 h-40 bg-indigo-100 rounded-full blur-3xl opacity-50"></div>

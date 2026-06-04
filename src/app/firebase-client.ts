@@ -1,11 +1,29 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, enableIndexedDbPersistence, getDocFromCache, getDocFromServer } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+if (typeof window !== 'undefined') {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Firestore persistence failed-precondition: Multiple tabs open.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Firestore persistence unimplemented in this browser.');
+    }
+  });
+
+  // Test connection to Firestore on boot as per Critical Constraint
+  getDocFromServer(doc(db, 'test', 'connection')).catch((error) => {
+    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('offline'))) {
+      console.warn('[Firestore] Operating in offline mode. Please check your network connection.');
+    }
+  });
+}
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -100,13 +118,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Global Configuration admin controls
 export const getGlobalConfig = async (): Promise<GlobalConfig | null> => {
   const path = 'global_settings/config';
+  const docRef = doc(db, 'global_settings', 'config');
   try {
-    const snap = await getDoc(doc(db, 'global_settings', 'config'));
+    const snap = await getDoc(docRef);
     if (snap.exists()) {
       return snap.data() as GlobalConfig;
     }
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, path);
+    const errorWithCode = err as { code?: string; message?: string };
+    if (errorWithCode?.code === 'unavailable' || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      console.warn('[Firestore] getGlobalConfig: Client is offline. Fetching from cache if available...');
+      try {
+        const cacheSnap = await getDocFromCache(docRef);
+        if (cacheSnap.exists()) {
+          return cacheSnap.data() as GlobalConfig;
+        }
+      } catch (cacheErr) {
+        console.warn('[Firestore] Failed to get global configuration from cache:', cacheErr);
+      }
+    } else {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
   }
   return null;
 };
@@ -203,15 +235,30 @@ export const backupScheduleSettings = async (schedule: unknown, settings: unknow
 
 export const restoreScheduleSettings = async () => {
   if (typeof window === 'undefined') return null;
+  const uid = getOrCreateUserUid();
+  const docRef = doc(db, 'users', uid, 'backup', 'data');
   try {
-    const uid = getOrCreateUserUid();
-    const snap = await getDoc(doc(db, 'users', uid, 'backup', 'data'));
+    const snap = await getDoc(docRef);
     if (snap.exists()) {
       console.log('Schedule data restored from cloud successfully.');
       return snap.data();
     }
   } catch (err) {
-    console.error('Failed to restore schedule data:', err);
+    const errorWithCode = err as { code?: string; message?: string };
+    if (errorWithCode?.code === 'unavailable' || !navigator.onLine) {
+      console.warn('[Firestore] restoreScheduleSettings: Client is offline. Fetching from cache if available...');
+      try {
+        const cacheSnap = await getDocFromCache(docRef);
+        if (cacheSnap.exists()) {
+          console.log('Schedule data restored from local cache successfully.');
+          return cacheSnap.data();
+        }
+      } catch (cacheErr) {
+        console.warn('[Firestore] Failed to restore schedule settings from cache:', cacheErr);
+      }
+    } else {
+      console.info('[Firestore] Failed to restore schedule data (unhandled):', err);
+    }
   }
   return null;
 };

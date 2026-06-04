@@ -58,6 +58,26 @@ export class App implements OnInit {
   isProcessing = signal(false);
   currentTime = signal<Date>(new Date());
 
+  // Optimized stable signals to prevent continuous change-detection thrashing
+  currentDateString = computed(() => {
+    const today = this.currentTime();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+
+  currentDayName = computed(() => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[this.currentTime().getDay()];
+  });
+
+  tomorrowDayName = computed(() => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const tomorrow = new Date(this.currentTime().getTime() + 86400000);
+    return days[tomorrow.getDay()];
+  });
+
   // Admin Signals
   adminBackendApiUrl = signal('');
   adminBroadcastText = signal('');
@@ -499,9 +519,9 @@ export class App implements OnInit {
     const mapping = this.subjectMappings();
     const name = mapping[code] || session.subjectName || code || '';
     
-    // Check if it's the last session of the day
-    const allSessionsToday = this.store.schedule().filter(s => s.dayOfWeek === session.dayOfWeek).sort((a, b) => a.startTime.localeCompare(b.startTime));
-    const isLast = allSessionsToday.length > 0 && allSessionsToday[allSessionsToday.length - 1].id === session.id;
+    const dayGroup = this.groupedSchedule().find(g => g.day === session.dayOfWeek);
+    const classes = dayGroup ? dayGroup.classes : [];
+    const isLast = classes.length > 0 && classes[classes.length - 1].id === session.id;
 
     if (isLast && (!name || name === 'โฮมรูม' || name === 'ว่าง')) {
        return 'เลิกเรียน';
@@ -512,37 +532,44 @@ export class App implements OnInit {
 
   getClassStatus(session: ClassSession): 'past' | 'current' | 'future' {
     const now = this.currentTime();
-    const [startH, startM] = session.startTime.split(':').map(Number);
-    const [endH, endM] = session.endTime.split(':').map(Number);
+    const currentH = now.getHours();
+    const currentM = now.getMinutes();
     
-    const startTime = new Date(now);
-    startTime.setHours(startH, startM, 0, 0);
+    const startH = +(session.startTime.substring(0, 2));
+    const startM = +(session.startTime.substring(3, 5));
+    const endH = +(session.endTime.substring(0, 2));
+    const endM = +(session.endTime.substring(3, 5));
     
-    const endTime = new Date(now);
-    endTime.setHours(endH, endM, 0, 0);
+    const nowTime = currentH * 60 + currentM;
+    const startTime = startH * 60 + startM;
+    const endTime = endH * 60 + endM;
 
-    if (now > endTime) return 'past';
-    if (now >= startTime && now <= endTime) return 'current';
+    if (nowTime >= endTime) return 'past';
+    if (nowTime >= startTime && nowTime < endTime) return 'current';
     return 'future';
   }
 
   getCountdown(session: ClassSession): string {
     const now = this.currentTime();
-    const [endH, endM] = session.endTime.split(':').map(Number);
-    const endTime = new Date(now);
-    endTime.setHours(endH, endM, 0, 0);
     
-    const diff = endTime.getTime() - now.getTime();
+    const endH = +(session.endTime.substring(0, 2));
+    const endM = +(session.endTime.substring(3, 5));
+    
+    const endSecs = (endH * 3600) + (endM * 60);
+    const nowSecs = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
+    
+    const diff = endSecs - nowSecs;
     if (diff <= 0) return '00:00';
     
-    const mins = Math.floor(diff / 60000);
-    const secs = Math.floor((diff % 60000) / 1000);
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
   getBellTime(session: ClassSession): string {
     const preNotifyMinutes = this.preNotifyMinutes();
-    const [startH, startM] = session.startTime.split(':').map(Number);
+    const startH = +(session.startTime.substring(0, 2));
+    const startM = +(session.startTime.substring(3, 5));
     let notifyH = startH;
     let notifyM = startM - preNotifyMinutes;
     while (notifyM < 0) {
@@ -559,7 +586,8 @@ export class App implements OnInit {
     const now = this.currentTime();
     
     // Calculate bell/notification target date for today
-    const [startH, startM] = session.startTime.split(':').map(Number);
+    const startH = +(session.startTime.substring(0, 2));
+    const startM = +(session.startTime.substring(3, 5));
     const preNotifyMinutes = this.preNotifyMinutes();
     
     let notifyH = startH;
@@ -572,14 +600,15 @@ export class App implements OnInit {
       notifyH = (notifyH % 24 + 24) % 24;
     }
     
-    const bellTime = new Date(now);
-    bellTime.setHours(notifyH, notifyM, 0, 0);
+    const targetSecs = (notifyH * 3600) + (notifyM * 60);
+    const nowSecs = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
     
-    const diff = bellTime.getTime() - now.getTime();
+    let diff = targetSecs - nowSecs;
     if (diff <= 0) return null; // Already passed
+    if (diff > 86400) diff = diff % 86400; // safe wrap
     
-    const mins = Math.floor(diff / 60000);
-    const secs = Math.floor((diff % 60000) / 1000);
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
@@ -690,9 +719,7 @@ export class App implements OnInit {
 
   currentDaySchedule = computed(() => {
     const list = this.store.schedule();
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const today = this.currentTime();
-    const todayStr = days[today.getDay()];
+    const todayStr = this.currentDayName();
     return list.filter(c => c.dayOfWeek === todayStr).sort((a, b) => a.startTime.localeCompare(b.startTime));
   });
 
@@ -706,9 +733,7 @@ export class App implements OnInit {
 
   tomorrowDaySchedule = computed(() => {
     const list = this.store.schedule();
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const tomorrow = new Date(this.currentTime().getTime() + 86400000); // Add 24 hours
-    const tomorrowStr = days[tomorrow.getDay()];
+    const tomorrowStr = this.tomorrowDayName();
     return list.filter(c => c.dayOfWeek === tomorrowStr).sort((a, b) => a.startTime.localeCompare(b.startTime));
   });
 
@@ -760,7 +785,8 @@ export class App implements OnInit {
     if (list.length === 0) return null;
 
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const today = this.currentTime();
+    const todayStr = this.currentDateString();
+    const today = new Date(todayStr);
     
     for (let i = 1; i <= 30; i++) {
       const checkDate = new Date(today);
@@ -788,15 +814,12 @@ export class App implements OnInit {
   });
 
   todayHolidayInfo = computed(() => {
-    const today = this.currentTime();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return this.isSchoolHoliday(`${yyyy}-${mm}-${dd}`);
+    return this.isSchoolHoliday(this.currentDateString());
   });
 
   tomorrowHolidayInfo = computed(() => {
-    const today = this.currentTime();
+    const todayStr = this.currentDateString();
+    const today = new Date(todayStr);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
