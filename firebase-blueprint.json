@@ -16,6 +16,9 @@
         },
         "uid": {
           "type": "string"
+        },
+        "ipAddress": {
+          "type": "string"
         }
       },
       "required": [
@@ -41,6 +44,9 @@
         },
         "updatedAt": {
           "type": "string"
+        },
+        "ipAddress": {
+          "type": "string"
         }
       },
       "required": [
@@ -48,6 +54,26 @@
         "settings",
         "active",
         "updatedAt"
+      ]
+    },
+    "UserRoot": {
+      "title": "UserRoot",
+      "description": "User root metadata documenting device identity and state",
+      "type": "object",
+      "properties": {
+        "updatedAt": {
+          "type": "string"
+        },
+        "ipAddress": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "updatedAt",
+        "ipAddress"
       ]
     },
     "DiagnosticLog": {
@@ -106,6 +132,10 @@
     }
   },
   "firestore": {
+    "users/{userId}": {
+      "schema": "UserRoot",
+      "description": "User profile index mapping"
+    },
     "users/{userId}/devices/{deviceId}": {
       "schema": "DeviceToken",
       "description": "Notification tokens mapping"

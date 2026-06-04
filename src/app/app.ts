@@ -20,6 +20,17 @@ interface BackupData {
   active?: boolean;
 }
 
+export interface ServerNotification {
+  id: string;
+  title: string;
+  body: string;
+  dispatchedAt: string;
+  ipAddress: string;
+  status: string;
+  subjectName?: string;
+  startTime?: string;
+}
+
 interface PwaInstallPrompt {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -37,6 +48,11 @@ export class App implements OnInit {
   gemini = inject(GeminiService);
   notification = inject(NotificationService);
   notificationPermission = signal<string>('default');
+  isNotificationSimulated = signal<boolean>(false);
+  
+  // Real-time server-side synchronization fields
+  clientIp = signal<string>('กำลังตรวจหา IP...');
+  dispatchedNotifications = signal<ServerNotification[]>([]);
 
   activeTab = signal<'home' | 'schedule' | 'calendar' | 'settings' | 'debug' | 'admin'>('home');
   isProcessing = signal(false);
@@ -261,6 +277,16 @@ export class App implements OnInit {
         this.adminMaintenanceMode.set(!!g.maintenanceMode);
         this.adminGithubRepo.set(g.githubRepo || 'khaophan/Timetable-notification-app');
         this.adminSubjectMappings.set(g.subjectMappings || {});
+
+        // Sync regular user's local subject mappings as well
+        if (g.subjectMappings) {
+          try {
+            const currentObj = this.subjectMappings();
+            this.subjectMappings.set({ ...currentObj, ...g.subjectMappings });
+          } catch (e) {
+            console.error('Failed to sync globalConfig subjectMappings:', e);
+          }
+        }
       }
     });
 
@@ -784,6 +810,10 @@ export class App implements OnInit {
     this.notification.startChecking();
     this.checkCloudBackupOnBoot();
 
+    // Fetch user IP address & subscribe to backend-dispatched background alarm triggers
+    this.fetchClientIp();
+    this.subscribeToDispatchedNotifications();
+
     onAuthStateChanged(auth, (user) => {
       this.adminUser.set(user);
     });
@@ -984,18 +1014,26 @@ export class App implements OnInit {
 
   async updateNotificationPermissionStatus() {
     if (typeof window !== 'undefined') {
+      const isSim = localStorage.getItem('simulated_notification_permission') === 'granted';
       if (Capacitor.isNativePlatform()) {
         try {
           const { display } = await LocalNotifications.checkPermissions();
           this.notificationPermission.set(display);
+          this.isNotificationSimulated.set(false);
         } catch (err) {
           console.error('Error checking native permissions:', err);
           this.notificationPermission.set('default');
+          this.isNotificationSimulated.set(false);
         }
+      } else if (isSim) {
+        this.notificationPermission.set('granted');
+        this.isNotificationSimulated.set(!('Notification' in window) || Notification.permission !== 'granted');
       } else if ('Notification' in window) {
         this.notificationPermission.set(Notification.permission);
+        this.isNotificationSimulated.set(false);
       } else {
         this.notificationPermission.set('unsupported');
+        this.isNotificationSimulated.set(false);
       }
     }
   }
@@ -1006,12 +1044,22 @@ export class App implements OnInit {
       const granted = await this.notification.requestPermission();
       await this.updateNotificationPermissionStatus();
       
+      const isSim = this.isNotificationSimulated();
+
       if (granted || this.notificationPermission() === 'granted') {
-        this.store.activeNotification.set({
-          title: 'สำเร็จ!',
-          body: 'อนุญาตการแจ้งเตือนสิทธิ์เรียบร้อยแล้ว ระบบตารางเรียนจะแจ้งเตือนเมื่อเริ่มคาบเรียน',
-          type: 'start'
-        });
+        if (isSim) {
+          this.store.activeNotification.set({
+            title: 'เปิดแจ้งเตือนเสมือนในแอปสำเร็จ! 🎉',
+            body: 'เนื่องจากกำลังใช้งานบน iFrame หรือ iOS Safari เบราว์เซอร์ปกติธรรมดา\nระบบจึงเปิดสิทธิ์แจ้งเตือนจำลองแอป (In-App notification) และระบบเสียง Chime เตือนอัจฉริยะให้โดยอัตโนมัติแล้ว! ระบบจะทำงานเมื่อเปิดหน้าเว็บนี้ค้างไว้',
+            type: 'start'
+          });
+        } else {
+          this.store.activeNotification.set({
+            title: 'สำเร็จ!',
+            body: 'อนุญาตการแจ้งเตือนสิทธิ์เรียบร้อยแล้ว ระบบตารางเรียนจะแจ้งเตือนเมื่อเริ่มคาบเรียน',
+            type: 'start'
+          });
+        }
       } else {
         this.store.activeNotification.set({
           title: 'สิทธิ์ถูกปฏิเสธ',
@@ -1302,31 +1350,154 @@ export class App implements OnInit {
     let importedCount = 0;
     
     for (const line of lines) {
-      if (!line.trim()) continue;
-      let matched = false;
-      if (line.includes('> |')) {
-        const [code, name] = line.split('> |');
-        updated[code.trim().toUpperCase()] = name.trim();
-        matched = true;
-      } else if (line.includes('|')) {
-        const [code, name] = line.split('|');
-        updated[code.trim().toUpperCase()] = name.trim();
-        matched = true;
-      } else if (line.includes('=')) {
-        const [code, name] = line.split('=');
-        updated[code.trim().toUpperCase()] = name.trim();
-        matched = true;
+      const cleaned = line.trim();
+      if (!cleaned) continue;
+      
+      let code = '';
+      let name = '';
+      
+      if (cleaned.includes('> |')) {
+        const parts = cleaned.split('> |');
+        code = parts[0];
+        name = parts[1];
+      } else if (cleaned.includes('=>')) {
+        const parts = cleaned.split('=>');
+        code = parts[0];
+        name = parts[1];
+      } else if (cleaned.includes('->')) {
+        const parts = cleaned.split('->');
+        code = parts[0];
+        name = parts[1];
+      } else if (cleaned.includes('=')) {
+        const parts = cleaned.split('=');
+        code = parts[0];
+        name = parts[1];
+      } else if (cleaned.includes('|')) {
+        const parts = cleaned.split('|');
+        code = parts[0];
+        name = parts[1];
+      } else if (cleaned.includes(':')) {
+        const parts = cleaned.split(':');
+        code = parts[0];
+        name = parts[1];
+      } else if (cleaned.includes(',')) {
+        const parts = cleaned.split(',');
+        code = parts[0];
+        name = parts[1];
+      } else {
+        // Try space or tab split
+        const parts = cleaned.split(/\s+/);
+        if (parts.length >= 2) {
+          code = parts[0];
+          name = parts.slice(1).join(' ');
+        }
       }
-      if (matched) importedCount++;
+
+      if (code && name) {
+        updated[code.trim().toUpperCase()] = name.trim();
+        importedCount++;
+      }
     }
     
     if (importedCount > 0) {
       this.adminSubjectMappings.set(updated);
-      alert(`นำเข้ารายวิชาแอดมินสำเร็จ ${importedCount} รายการ (โปรดกดบันทึกเพื่อซิงก์ข้อมูลไปมือถือครอบคลุมทั่วโลก)`);
+      alert(`🎉 นำเข้ารายวิชาสำเร็จ ${importedCount} รายการ!\n👉 โปรดกดปุ่ม "เชื่อมต่อเซิร์ฟเวอร์เพื่อบันทึกวิชาขึ้น Cloud" ด้านล่างนี้เพื่อเปิดใช้งานตารางรายวิชานี้กับผู้ใช้งานทุกคนทั่วโลกทันที!`);
     } else {
-      alert('ไม่พบข้อมูลรูปแบบที่ใช้จับคู่รหัสได้ เกร็ดตัวอย่าง: ว30103 = วิทยาศาสตร์');
+      alert('❌ ไม่พบข้อมูลรายวิชาในไฟล์นี้ กรุณาใช้รูปแบบที่ถูกต้อง เช่น โค้ดวิชา = ชื่อวิชา หรือ โค้ดวิชา : ชื่อวิชา');
     }
     input.value = '';
+  }
+
+  async fetchClientIp() {
+    try {
+      const res = await fetch('/api/ip');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ip) {
+          this.clientIp.set(data.ip);
+          return;
+        }
+      }
+      this.clientIp.set('ไม่ทราบ IP (ใช้จำลอง)');
+    } catch {
+      this.clientIp.set('127.0.0.1 (Local Environment)');
+    }
+  }
+
+  subscribeToDispatchedNotifications() {
+    if (typeof window === 'undefined') return;
+    
+    import('./firebase-client').then(({ getOrCreateUserUid, db }) => {
+      import('firebase/firestore').then(({ collection, query, orderBy, limit, onSnapshot }) => {
+        const uid = getOrCreateUserUid();
+        const q = query(
+          collection(db, `users/${uid}/dispatched_notifications`),
+          orderBy('dispatchedAt', 'desc'),
+          limit(10)
+        );
+        
+        let isFirstLoad = true;
+        
+        onSnapshot(q, (snap) => {
+          const items: ServerNotification[] = [];
+          snap.forEach(doc => {
+            const data = doc.data() as ServerNotification;
+            items.push(data);
+          });
+          
+          // Sort raw items chronologically ascending to detect sequence
+          const sortedItems = [...items].sort((a, b) => Date.parse(a.dispatchedAt) - Date.parse(b.dispatchedAt));
+          
+          if (!isFirstLoad) {
+            const currentIds = new Set(this.dispatchedNotifications().map(d => d.id));
+            const newDispatches = sortedItems.filter(item => !currentIds.has(item.id));
+            
+            if (newDispatches.length > 0) {
+              const latestDispatched = newDispatches[newDispatches.length - 1];
+              // Play high-contrast E5/B5 browser web audio chime synth immediately 
+              this.notification.playNotificationSound();
+              
+              // Set global store active notification to popup beautiful in-app notice instantly on screen
+              this.store.activeNotification.set({
+                title: latestDispatched.title,
+                body: `${latestDispatched.body}\n(ส่งเฉพาะตัวรายเครื่อง IP: ${latestDispatched.ipAddress})`,
+                type: 'start'
+              });
+            }
+          } else {
+            isFirstLoad = false;
+          }
+          
+          this.dispatchedNotifications.set(items);
+        }, (err) => {
+          console.warn('Failed to subscribe to background dispatches in app.ts:', err);
+        });
+      });
+    });
+  }
+
+  async triggerServerTestAlarm() {
+    this.isProcessing.set(true);
+    try {
+      const { getOrCreateUserUid } = await import('./firebase-client');
+      const uid = getOrCreateUserUid();
+      const res = await fetch('/api/trigger-test-alarm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid })
+      });
+      if (res.ok) {
+        console.log('Successfully requested direct server alarm trigger!');
+      } else {
+        const data = await res.json();
+        alert(`ไม่สามารถเรียกงานเซิร์ฟเวอร์ได้: ${data.error || 'ข้อผิดพลาดระบบแอน'}`);
+      }
+    } catch (e) {
+      console.error('Trigger server alarm failure:', e);
+      alert('เชื่องโยงเซิร์ฟเวอร์ Direct เหมืองล้มเหลว');
+    } finally {
+      this.isProcessing.set(false);
+    }
   }
 }
 

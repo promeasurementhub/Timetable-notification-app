@@ -36,6 +36,28 @@ export class AppStore {
               const localMap = JSON.parse(localSaved);
               const merged = { ...localMap, ...config.subjectMappings };
               localStorage.setItem('subject_mappings', JSON.stringify(merged));
+
+              // Auto-resolve any empty/placeholder names in the current schedule right away
+              const currentSchedule = this.schedule();
+              if (currentSchedule && currentSchedule.length > 0) {
+                let isAnyResolved = false;
+                const resolvedSchedule = currentSchedule.map(session => {
+                  const sCode = (session.subjectCode || '').trim().toUpperCase();
+                  const mappedName = merged[sCode];
+                  if (sCode && mappedName) {
+                    const currentName = (session.subjectName || '').trim();
+                    if (!currentName || currentName === 'วิชาใหม่' || currentName === 'ระบุชื่อวิชา' || currentName === 'ไม่ระบุ') {
+                      isAnyResolved = true;
+                      return { ...session, subjectName: mappedName };
+                    }
+                  }
+                  return session;
+                });
+                if (isAnyResolved) {
+                  console.log('[AppStore] Air-sync auto-resolved subject names successfully!');
+                  this.updateSchedule(resolvedSchedule);
+                }
+              }
             } catch (e) {
               console.warn('[AppStore] Merging admin subject mappings failed:', e);
             }
@@ -80,7 +102,27 @@ export class AppStore {
   }
 
   private cleanUpSchedule(list: ClassSession[]): ClassSession[] {
+    let mappings: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const localSaved = localStorage.getItem('subject_mappings') || '{}';
+        mappings = JSON.parse(localSaved);
+      } catch {
+        // ignore
+      }
+    }
+
     return list.map(session => {
+      // 1. Resolve subject name from mappings if code matches and current name is blank or placeholder
+      const sessionCode = (session.subjectCode || '').trim().toUpperCase();
+      if (sessionCode && mappings[sessionCode]) {
+        const mappedName = mappings[sessionCode];
+        const currentName = (session.subjectName || '').trim();
+        if (!currentName || currentName === 'วิชาใหม่' || currentName === 'ระบุชื่อวิชา' || currentName === 'ไม่ระบุ') {
+          session = { ...session, subjectName: mappedName };
+        }
+      }
+
       // Check if it is the 10th period (starting at 15:40)
       if (session.startTime === '15:40') {
         const trimmedCode = (session.subjectCode || '').trim();

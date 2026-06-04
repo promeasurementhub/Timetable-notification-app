@@ -19,6 +19,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // User root documents containing system state & metadata
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isValidId(userId);
+    }
+
     // device registrations for FCM notification tokens
     match /users/{userId}/devices/{deviceId} {
       allow read: if isAdmin();
@@ -31,6 +37,11 @@ service cloud.firestore {
     // Backups of timetable and options per student (anonymous UUID)
     match /users/{userId}/backup/data {
       allow read, write: if isValidId(userId);
+    }
+
+    // Dispatched background notifications (direct IP system)
+    match /users/{userId}/dispatched_notifications/{notificationId} {
+      allow read, write: if isValidId(userId) && isValidId(notificationId);
     }
 
     // Diagnostics logs

@@ -297,6 +297,10 @@ export class NotificationService {
   requestPermission() {
     return new Promise<boolean>((resolve) => {
       if (typeof window !== 'undefined') {
+        const isInIframe = window.self !== window.top;
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const useSimulation = isInIframe || isIOS;
+
         if (Capacitor.isNativePlatform()) {
           LocalNotifications.requestPermissions().then((permission) => {
             resolve(permission.display === 'granted');
@@ -328,11 +332,31 @@ export class NotificationService {
                 resolve(true); // Still treat as granted if browser perm is ok
               });
             } else {
+              if (useSimulation) {
+                console.log('Browser denied or iframe sandbox blocks notification. Fallback to In-App Simulation Mode.');
+                localStorage.setItem('simulated_notification_permission', 'granted');
+                resolve(true);
+              } else {
+                resolve(false);
+              }
+            }
+          }).catch(err => {
+            console.warn('Notification.requestPermission error, fallback to simulation:', err);
+            if (useSimulation) {
+              localStorage.setItem('simulated_notification_permission', 'granted');
+              resolve(true);
+            } else {
               resolve(false);
             }
           });
         } else {
-          resolve(false);
+          if (useSimulation) {
+            console.log('Notification API not found (e.g. iOS Safari). Fallback to In-App Simulation Mode.');
+            localStorage.setItem('simulated_notification_permission', 'granted');
+            resolve(true);
+          } else {
+            resolve(false);
+          }
         }
       } else {
         resolve(false);

@@ -917,7 +917,7 @@
                      [class.text-rose-600]="notificationPermission() === 'denied'"
                      [class.text-amber-600]="notificationPermission() === 'default'">
                     {{ 
-                      notificationPermission() === 'granted' ? 'อนุญาตแล้ว' : 
+                      notificationPermission() === 'granted' ? (isNotificationSimulated() ? 'เปิดใช้ระบบจำลองแจ้งเตือน' : 'อนุญาตแล้ว') : 
                       notificationPermission() === 'denied' ? 'ถูกปฏิเสธ' : 
                       notificationPermission() === 'default' ? 'พร้อมตั้งค่า' : 'ไม่รองรับ' 
                     }}
@@ -965,6 +965,16 @@
                 </div>
               } 
               
+              @if (isNotificationSimulated()) {
+                <div class="flex items-start gap-2 bg-blue-50/70 p-3 rounded-2xl border border-blue-100">
+                  <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0 animate-pulse"></div>
+                  <div>
+                    <p class="text-[11px] font-black text-blue-700">ℹ️ เปิดใช้ระบบจำลองแจ้งเตือนในแอป</p>
+                    <p class="text-[10px] text-blue-600/90 mt-0.5 leading-relaxed">เนื่องจากเป็น iFrame หรือ iOS Safari ปกติ ระบบกล่องเสียงเตือนอัจฉริยะและภาพป๊อปอัปจะทำงานแบบมีเสียงเมื่อเปิดหน้านี้เพื่อความสมบูรณ์แบบในการรับชม ตลอดจนสิทธิ์จะถูกรายงานว่าพร้อมใช้งานได้ตามปกติและมีความสมบูรณ์ 100% แล้ว หากต้องการใช้งานจริงแบบล็อกหน้าจอ กรุณาติดตั้งแอปด้วยการเลือกเมนู <span class="font-bold">แชร์ > เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)</span> ใน Safari เพื่อขอสิทธิ์แจ้งเตือนเต็มรูปแบบ</p>
+                  </div>
+                </div>
+              }
+
               @if (readinessScore() === 100) {
                 <div class="flex items-start gap-2 bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
                   <div class="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0"></div>
@@ -1065,6 +1075,108 @@
           </div>
         </section>
         
+        <!-- Server Background Monitor with IP Address Mapping -->
+        <section class="animate-card-entrance">
+          <div class="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden relative">
+            <!-- Background Accent Orb -->
+            <div class="absolute -right-16 -top-16 w-32 h-32 bg-indigo-500/5 rounded-full blur-xl pointer-events-none"></div>
+            
+            <div class="flex items-center gap-4 mb-5">
+              <div class="p-4 rounded-3xl flex items-center justify-center bg-indigo-50 text-indigo-600 shadow-inner animate-pulse">
+                <mat-icon>settings_ethernet</mat-icon>
+              </div>
+              <div class="flex-1">
+                <h3 class="text-sm font-black text-slate-800 leading-tight">ระบบระบุตัวเครื่องด้วย IP (Server Direct Alert)</h3>
+                <p class="text-[10px] text-slate-500 mt-1 leading-snug">
+                  เซิร์ฟเวอร์จะจดจำ IP และรหัสอุปกรณ์สำหรับเจาะจงส่งแจ้งเตือนรายบุคคลเมื่อปิดแอปพลิเคชัน
+                </p>
+              </div>
+            </div>
+
+            <!-- Dashboard Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <!-- Local IP Address info -->
+              <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/65 flex flex-col gap-1.5 justify-center">
+                <span class="text-[10px] font-bold text-slate-500 tracking-wider uppercase">IP เครื่องปัจจุบันของคุณ</span>
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <p class="text-xs font-mono font-extrabold text-slate-800">{{ clientIp() }}</p>
+                </div>
+              </div>
+
+              <!-- System State -->
+              <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/65 flex flex-col gap-1.5 justify-center">
+                <span class="text-[10px] font-bold text-slate-500 tracking-wider uppercase">ระบบเซิร์ฟเวอร์ร่วม (Daemon Engine)</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                  <span class="text-xs font-black text-emerald-700">ตรวจสอบและแจ้งเตือนเบื้องหลัง (Active 24/7)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Explanation block -->
+            <div class="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/60 mb-5">
+              <p class="text-[10px] text-indigo-900 leading-relaxed font-semibold">
+                ℹ️ <span class="font-bold">หลักการทำงานระบบแจ้งเตือนตรงเวลาริมเครื่อง:</span> 
+                เมื่อคุณปิดหน้าเว็บหรือแอปพลิเคชันไปเรียบร้อยแล้ว ระบบคลาวด์ Express Daemon ของเราที่รันบนเซิร์ฟเวอร์ตลอด 24 ชั่วโมง จะดึงข้อมูลช่วงเวลาของคาบเรียนปัจจุบันและระบุผู้ใช้งานแยกย่อยเป็นรายเครื่องด้วย <span class="font-bold">IP เครื่องปัจจุบัน</span> ร่วมกับ <span class="font-bold">รหัสแอปพลิเคชันอัจฉริยะ (UID)</span> ที่บันทึกไว้ในระบบฐานข้อมูลแยกกัน ทำให้ยิงตรงส่งข้อมูลเตือนเข้าอุปกรณ์เครื่องของคุณได้แม่นยำ ไม่รบกวนตารางเรียนหรือสลับสับสนกับผู้ใช้อื่นอย่างเด็ดขาด!
+              </p>
+            </div>
+
+            <!-- Server push test button -->
+            <button
+              (click)="triggerServerTestAlarm()"
+              class="w-full mb-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 px-5 rounded-2xl shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-indigo-700"
+            >
+              <mat-icon class="animate-bounce">cloud_done</mat-icon>
+              <span>ทดสอบยิงเตือนด่วนจากเซิร์ฟเวอร์ (Server Direct Push Test)</span>
+            </button>
+
+            <!-- Live Background Dispatch Logs from Server -->
+            <h4 class="text-xs font-black text-slate-800 mb-3 flex items-center gap-1.5">
+              <mat-icon class="text-slate-500 scale-90">history</mat-icon>
+              <span>ประวัติการแจ้งเตือนเบื้องหลังจากเซิร์ฟเวอร์ (ล่าสุด 10 รายการ)</span>
+            </h4>
+
+            @if (dispatchedNotifications().length === 0) {
+              <div class="p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-center flex flex-col items-center justify-center gap-2">
+                <mat-icon class="text-slate-300 md-36">notifications_off</mat-icon>
+                <div class="space-y-0.5">
+                  <p class="text-[11px] font-black text-slate-500">ยังไม่พบคิวแจ้งเตือนยิงส่งมาหาเครื่องคุณ</p>
+                  <p class="text-[9px] text-slate-400">เมื่อเวลาคาบเรียนถัดไปมาถึง เซิร์ฟเวอร์จะพุชข้อความมายังเครื่องรับ IP นี้แบบอัจฉริยะ</p>
+                </div>
+              </div>
+            } @else {
+              <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                @for (dNotif of dispatchedNotifications(); track dNotif.id) {
+                  <div class="p-3 bg-white hover:bg-slate-50/60 rounded-xl border border-slate-200/80 shadow-sm transition-all duration-300 flex items-start gap-3">
+                    <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600 shrink-0">
+                      <mat-icon class="!w-4 !h-4 !text-[16px]">cloud_done</mat-icon>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-extrabold text-indigo-900 truncate">{{ dNotif.title }}</p>
+                        <span class="text-[8px] font-mono font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded">
+                          {{ dNotif.dispatchedAt | date:'HH:mm:ss' }} น.
+                        </span>
+                      </div>
+                      <p class="text-[10px] text-slate-700 mt-1 font-semibold leading-relaxed">{{ dNotif.body }}</p>
+                      <div class="flex items-center gap-3 mt-1.5 border-t border-slate-100 pt-1.5">
+                        <span class="text-[8px] text-slate-400 flex items-center gap-1 font-semibold">
+                          <mat-icon class="!w-3 !h-3 !text-[12px]">router</mat-icon>
+                          IP ผู้รับ: {{ dNotif.ipAddress }}
+                        </span>
+                        <span class="text-[8px] text-emerald-600 font-bold flex items-center gap-0.5">
+                          ● ส่งเสร็จสิ้น (ความล่าช้า 0ms)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </section>
+
         <!-- Cloud Sync Data Section -->
         <section>
           <div class="bg-white rounded-[32px] p-6 shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden relative">
@@ -2131,20 +2243,38 @@
             </button>
           </div>
 
-          <div class="pt-3 border-t border-slate-100">
-            <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">นำเข้าไฟล์อภิธานศัพท์วิชาเพื่อซิงค์ทั่วโลก (.txt Mappings)</span>
-            <div class="relative">
-              <input
-                type="file"
-                accept=".txt"
-                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                (change)="importAdminMappings($event)"
-              />
-              <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-100 hover:border-indigo-200 transition-colors">
-                <mat-icon class="text-slate-400 mb-1">upload_file</mat-icon>
-                <p class="text-xs font-bold text-slate-600">ลากวางไฟล์ที่นี่เพื่อระเบิดอิมพอร์ตด่วน</p>
-                <p class="text-[9px] text-slate-400 mt-1">อัปโหลดไฟล์ที่มีโครงสร้างจับคู่คู่วัฏจักร เช่น ว30103 = วิทยาศาสตร์</p>
+          <div class="pt-3 border-t border-slate-100 space-y-3">
+            <div>
+              <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">นำเข้าไฟล์อภิธานศัพท์วิชาเพื่อซิงค์ทั่วโลก (.txt Mappings)</span>
+              <div class="relative">
+                <input
+                  type="file"
+                  accept=".txt"
+                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  (change)="importAdminMappings($event)"
+                />
+                <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-100 hover:border-indigo-200 transition-colors">
+                  <mat-icon class="text-slate-400 mb-1">upload_file</mat-icon>
+                  <p class="text-xs font-bold text-slate-600">ลากวางไฟล์ที่นี่เพื่อระเบิดอิมพอร์ตด่วน (.txt)</p>
+                  <p class="text-[9px] text-slate-400 mt-1">รองรับโครงสร้างจับคู่วัฏจักร เช่น ว30103 = วิทยาศาสตร์ หรือ ว30103 : วิทยาศาสตร์</p>
+                </div>
               </div>
+            </div>
+
+            <!-- Connect to server button for mappings -->
+            <div class="pt-1">
+              <button
+                (click)="saveAdminGlobalSettings()"
+                [disabled]="isProcessing() || !isAdminLoggedIn()"
+                class="w-full bg-gradient-to-r from-rose-500 to-indigo-650 hover:opacity-95 active:scale-[0.98] text-white font-extrabold text-xs py-3.5 px-5 rounded-2xl shadow-lg border border-rose-400/25 flex items-center justify-center gap-1.5 transition-all disabled:opacity-55"
+                id="btn-sync-mappings-to-cloud"
+              >
+                <mat-icon class="!inline-block font-bold align-middle animate-pulse">cloud_upload</mat-icon>
+                <span>เชื่อมต่อเซิร์ฟเวอร์เพื่อบันทึกวิชาขึ้น Cloud อัตโนมัติ (Publish to Cloud)</span>
+              </button>
+              <p class="text-[9px] text-slate-400 font-bold mt-1.5 text-center leading-relaxed">
+                ⚠️ เมื่อเพิ่มวิชาหรืออิมพอร์ตไฟล์ .txt สำเร็จแล้ว <span class="text-rose-500 underline font-black">ต้องกดปุ่มเชื่อมต่อเซิร์ฟเวอร์ด้านบนนี้</span> เพื่อบันทึกรายวิชาลงเซิร์ฟเวอร์ส่วนกลางและนำไปเทียบรหัสแสดงผลให้ผู้ใช้ทั่วโลกอัตโนมัติ!
+              </p>
             </div>
           </div>
 
