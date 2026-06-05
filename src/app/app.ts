@@ -1079,8 +1079,18 @@ export class App implements OnInit {
         }
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.message) {
-         this.authError.set(err.message);
+      if (err instanceof Error) {
+        if (err.message.includes('auth/email-already-in-use')) {
+           this.authError.set('อีเมลนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ');
+        } else if (err.message.includes('auth/invalid-credential') || err.message.includes('auth/wrong-password') || err.message.includes('auth/user-not-found')) {
+           this.authError.set('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        } else if (err.message.includes('auth/weak-password')) {
+           this.authError.set('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+        } else if (err.message.includes('auth/invalid-email')) {
+           this.authError.set('รูปแบบอีเมลไม่ถูกต้อง');
+        } else {
+           this.authError.set(err.message);
+        }
       } else {
          this.authError.set('เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์');
       }

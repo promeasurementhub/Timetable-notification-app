@@ -65,7 +65,11 @@
             "development": {
               "optimization": false,
               "extractLicenses": false,
-              "sourceMap": true
+              "sourceMap": true,
+              "externalDependencies": [
+                "firebase-admin",
+                "@google/genai"
+              ]
             }
           },
           "defaultConfiguration": "production"
