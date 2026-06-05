@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AppStore } from './store';
 import { GeminiService } from './gemini';
 import { NotificationService } from './notification';
-import { ClassSession, AppSettings } from './models';
+import { ClassSession, AppSettings, DEFAULT_SUBJECT_MAPPINGS } from './models';
 import { CalendarDay, CalendarMonth, THAI_MONTHS, PUBLIC_HOLIDAYS_2026 } from './calendar';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
@@ -471,7 +471,7 @@ export class App implements OnInit {
   resolveSubjectName(session: ClassSession): string {
     const code = (session.subjectCode || '').trim().toUpperCase();
     const mapping = this.subjectMappings();
-    const name = mapping[code] || session.subjectName || code || '';
+    const name = mapping[code] || DEFAULT_SUBJECT_MAPPINGS[code] || session.subjectName || code || '';
     
     // Check if it's the last session of the day
     const allSessionsToday = this.store.schedule().filter(s => s.dayOfWeek === session.dayOfWeek).sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -581,6 +581,13 @@ export class App implements OnInit {
       return;
     }
     const val = this.editForm.getRawValue();
+    
+    // Auto populate subjectName from local or default mapping if it is empty
+    const code = (val.subjectCode || '').trim().toUpperCase();
+    if (code && !val.subjectName.trim()) {
+      const localMappings = this.subjectMappings();
+      val.subjectName = localMappings[code] || DEFAULT_SUBJECT_MAPPINGS[code] || '';
+    }
     
     // Validate end time must be after start time
     if (val.startTime && val.endTime && val.endTime <= val.startTime) {
@@ -860,6 +867,23 @@ export class App implements OnInit {
           this.showOnboarding.set(true);
        }
     }
+
+    // Auto-fill subjectName from static mapping if the subjectCode matches
+    this.editForm.get('subjectCode')?.valueChanges.subscribe(val => {
+      if (val) {
+        const cleanCode = val.trim().toUpperCase();
+        const localMappings = this.subjectMappings();
+        const defaultMappings = DEFAULT_SUBJECT_MAPPINGS;
+        const matchedName = localMappings[cleanCode] || defaultMappings[cleanCode];
+        
+        if (matchedName) {
+          const nameControl = this.editForm.get('subjectName');
+          if (nameControl && !nameControl.value.trim()) {
+            nameControl.setValue(matchedName, { emitEvent: false });
+          }
+        }
+      }
+    });
   }
 
   async acceptOnboarding() {

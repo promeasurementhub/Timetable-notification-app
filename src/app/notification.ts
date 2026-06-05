@@ -437,7 +437,26 @@ export class NotificationService {
     } catch {
       // Ignore if parsing or loading fails
     }
-    return session.subjectName || mappings[session.subjectCode?.toUpperCase() || ''] || session.subjectCode || 'ไม่ระบุวิชา';
+    const code = (session.subjectCode || '').trim().toUpperCase();
+    const defaultMappings: Record<string, string> = {
+      'ว30103': 'วิทยาการคำนวณ',
+      'ว30266': 'ดาราศาสตร์',
+      'ท31101': 'ภาษาไทย',
+      'อ30201': 'ภาษาอังกฤษ',
+      'ก31901': 'แนะแนว',
+      'ค31101': 'คณิตศาสตร์พื้นฐาน',
+      'อ31101': 'ภาษาอังกฤษ',
+      'ส31101': 'สังคมศึกษา',
+      'ว31221': 'เคมี',
+      'พ31101': 'สุขศึกษา',
+      'ค31201': 'คณิตศาสตร์เพิ่มเติม',
+      'ว31201': 'ฟิสิกส์',
+      'ศ31101': 'ดนตรี/ศิลปะ',
+      'ว31241': 'ชีววิทยา',
+      'ส31103': 'ประวัติศาสตร์',
+      'ง31101': 'การงานอาชีพ'
+    };
+    return mappings[code] || defaultMappings[code] || session.subjectName || session.subjectCode || 'ไม่ระบุวิชา';
   }
 
   private sendClassTransitionNotification(time: string, prev: ClassSession | null, next: ClassSession, classNum: number, settings: AppSettings) {

@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -38,10 +38,25 @@ jobs:
           echo "1. The destination repository ($DESTINATION_REPO) is already created in the target account."
           echo "2. DESTINATION_TOKEN (Personal Access Token) has 'repo' permissions."
           
-          DEST_REPO_URL="https://x-access-token:${DESTINATION_TOKEN}@github.com/${DESTINATION_USERNAME}/${DESTINATION_REPO}.git"
-          
           # ยกเลิก config เดิมที่ actions/checkout อาจจะทิ้งไว้
           git config --local --unset-all "http.https://github.com/.extraheader" || true
           
-          # ใช้ git push โดยระบุ URL ตรงๆ
-          git push "$DEST_REPO_URL" HEAD:main --force
+          # วิธีที่ 1: ใช้ Standard PAT URL (แนะนำสำหรับ Personal Access Token / Fine-grained PAT)
+          DEST_REPO_URL_PAT="https://${DESTINATION_TOKEN}@github.com/${DESTINATION_USERNAME}/${DESTINATION_REPO}.git"
+          
+          echo "Trying sync using Standard PAT URL format..."
+          if git push "$DEST_REPO_URL_PAT" HEAD:main --force; then
+            echo "✅ Successfully synced to destination repository using standard PAT URL!"
+          else
+            echo "⚠️ Standard PAT URL push failed or returned an error. Trying fallback with x-access-token format..."
+            
+            # วิธีที่ 2: ใช้ x-access-token (สำหรับกรณีที่เป็นการตั้งค่าแบบ OAuth หรือ token รูปแบบเฉพาะ)
+            DEST_REPO_URL_ALT="https://x-access-token:${DESTINATION_TOKEN}@github.com/${DESTINATION_USERNAME}/${DESTINATION_REPO}.git"
+            
+            if git push "$DEST_REPO_URL_ALT" HEAD:main --force; then
+              echo "✅ Successfully synced to destination repository using x-access-token fallback!"
+            else
+              echo "❌ Both push methods failed. Please check your DESTINATION_TOKEN permissions and ensure the destination repository exists."
+              exit 1
+            fi
+          fi

@@ -1,13 +1,37 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { initializeFirestore, doc, setDoc, getDoc, onSnapshot, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true
+}, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Resilient wrapper for getDoc that handles transient offline/unavailable failures gracefully
+const getDocWithRetry = async (docRef: DocumentReference, retries = 3, delayMs = 1500): Promise<DocumentSnapshot> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await getDoc(docRef);
+    } catch (err) {
+      const error = err as { code?: string; message?: string };
+      const isOfflineError = !!(error && (
+        error.code === 'unavailable' || 
+        (error.message && error.message.toLowerCase().includes('offline'))
+      ));
+      if (isOfflineError && i < retries - 1) {
+        console.warn(`Firestore is offline/unavailable. Retrying getDoc in ${delayMs}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+  return await getDoc(docRef);
+};
 
 // Force prompt so users can switch accounts if they need to
 googleProvider.setCustomParameters({
@@ -53,12 +77,18 @@ export const logout = async (): Promise<void> => {
 // Global Configuration admin controls
 export const getGlobalConfig = async (): Promise<GlobalConfig | null> => {
   try {
-    const snap = await getDoc(doc(db, 'global_settings', 'config'));
+    const snap = await getDocWithRetry(doc(db, 'global_settings', 'config'));
     if (snap.exists()) {
       return snap.data() as GlobalConfig;
     }
   } catch (err) {
-    console.error('Failed to get global configs:', err);
+    const error = err as { code?: string; message?: string };
+    const isOffline = !!(error && (error.code === 'unavailable' || (error.message && error.message.toLowerCase().includes('offline'))));
+    if (isOffline) {
+      console.warn('Failed to get global configs (client is offline - this is expected in offline mode)');
+    } else {
+      console.error('Failed to get global configs:', err);
+    }
   }
   return null;
 };
@@ -134,13 +164,19 @@ export const restoreScheduleSettings = async () => {
   if (typeof window === 'undefined') return null;
   try {
     const uid = getOrCreateUserUid();
-    const snap = await getDoc(doc(db, 'users', uid, 'backup', 'data'));
+    const snap = await getDocWithRetry(doc(db, 'users', uid, 'backup', 'data'));
     if (snap.exists()) {
       console.log('Schedule data restored from cloud successfully.');
       return snap.data();
     }
   } catch (err) {
-    console.error('Failed to restore schedule data:', err);
+    const error = err as { code?: string; message?: string };
+    const isOffline = !!(error && (error.code === 'unavailable' || (error.message && error.message.toLowerCase().includes('offline'))));
+    if (isOffline) {
+      console.warn('Failed to restore schedule data: client is offline (this is a normal expected behavior in offline mode)');
+    } else {
+      console.error('Failed to restore schedule data:', err);
+    }
   }
   return null;
 };
