@@ -26,8 +26,8 @@ try {
       payload.notification?.title || payload.data?.title || "แจ้งเตือนตารางเรียน";
     const notificationOptions = {
       body: payload.notification?.body || payload.data?.body,
-      icon: "/app-icon-192.png",
-      badge: "/app-icon-192.png",
+      icon: "/app-icon-192-v5.png",
+      badge: "/app-icon-192-v5.png",
       data: payload.data || { url: '/' },
       vibrate: [200, 100, 200]
     };
@@ -54,8 +54,8 @@ self.addEventListener('push', function(event) {
   const title = data.title || "แจ้งเตือนแอปพลิเคชัน";
   const options = {
     body: data.body || "คุณมีข้อความใหม่",
-    icon: data.icon || "/app-icon-192.png",
-    badge: data.badge || "/app-icon-192.png",
+    icon: data.icon || "/app-icon-192-v5.png",
+    badge: data.badge || "/app-icon-192-v5.png",
     data: data.data || { url: '/' },
     vibrate: [200, 100, 200]
   };

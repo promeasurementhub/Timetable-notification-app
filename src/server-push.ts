@@ -27,6 +27,28 @@ let db: any;
 let isReady = false;
 let authUser: any;
 
+export async function processNotificationQueue() {
+    if (!isReady) return;
+    try {
+        const now = new Date();
+        const pendingQuery = query(collection(db, "notifications"), 
+            where("status", "==", "pending")
+        );
+        const snaps = await getDocs(pendingQuery);
+        
+        snaps.forEach(async (docSnap) => {
+            const nData = docSnap.data();
+            const sendAtDate = new Date(nData['sendAt']);
+            
+            if (now >= sendAtDate) {
+                // Time to send!
+                await sendPushForNotification(docSnap.id, nData);
+            }
+        });
+    } catch (e) {
+        console.error("Queue process error:", e);
+    }
+}
 export async function initPushWorker() {
     try {
         const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -66,28 +88,7 @@ export async function initPushWorker() {
     }
 }
 
-async function processNotificationQueue() {
-    if (!isReady) return;
-    try {
-        const now = new Date();
-        const pendingQuery = query(collection(db, "notifications"), 
-            where("status", "==", "pending")
-        );
-        const snaps = await getDocs(pendingQuery);
-        
-        snaps.forEach(async (docSnap) => {
-            const nData = docSnap.data();
-            const sendAtDate = new Date(nData['sendAt']);
-            
-            if (now >= sendAtDate) {
-                // Time to send!
-                await sendPushForNotification(docSnap.id, nData);
-            }
-        });
-    } catch (e) {
-        console.error("Queue process error:", e);
-    }
-}
+
 
 async function sendPushForNotification(id: string, nData: any) {
     try {

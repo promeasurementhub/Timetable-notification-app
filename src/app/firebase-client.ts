@@ -245,7 +245,7 @@ export const fetchDiagnosticInfo = async () => {
   let fCount = 0;
   
   try {
-    const { collection, query, where, getDocs, orderBy, limit } = await import('firebase/firestore');
+    const { collection, query, where, getDocs, limit } = await import('firebase/firestore');
     
     // Subscriptions
     const subQuery = query(collection(db, "pushSubscriptions"), where("userId", "==", uid), limit(1));
@@ -256,12 +256,13 @@ export const fetchDiagnosticInfo = async () => {
     }
 
     // Queue
-    const qQuery = query(collection(db, "notifications"), where("userId", "==", uid), orderBy("sendAt", "asc"), limit(20));
+    const qQuery = query(collection(db, "notifications"), where("userId", "==", uid), limit(50));
     const qSnaps = await getDocs(qQuery);
     queueItems = qSnaps.docs.map(d => ({id: d.id, ...d.data()}));
+    queueItems.sort((a, b) => new Date(a['sendAt']).getTime() - new Date(b['sendAt']).getTime());
 
     // Logs
-    const lQuery = query(collection(db, "notificationLogs"), where("userId", "==", uid), orderBy("sentAt", "desc"), limit(20));
+    const lQuery = query(collection(db, "notificationLogs"), where("userId", "==", uid), limit(50));
     const lSnaps = await getDocs(lQuery);
     logItems = lSnaps.docs.map(d => {
         const data = d.data();
@@ -269,6 +270,7 @@ export const fetchDiagnosticInfo = async () => {
         if (data['status'] === 'failed') fCount++;
         return {id: d.id, ...data};
     });
+    logItems.sort((a, b) => new Date(b['sentAt'] as string).getTime() - new Date(a['sentAt'] as string).getTime());
 
   } catch(e) {
     console.error("fetchDiagnosticInfo Error:", e);
